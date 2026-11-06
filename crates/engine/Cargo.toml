@@ -7,8 +7,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "3", default-features = false, features = ["napi4"] }
+napi = { version = "3", default-features = false, features = ["napi4", "tokio_rt"] }
 napi-derive = "3"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "gzip", "deflate", "brotli"] }
 
 [build-dependencies]
 napi-build = "2"

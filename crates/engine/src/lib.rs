@@ -1,3 +1,5 @@
+mod http;
+
 use napi_derive::napi;
 
 /// Smoke-test binding: proves the Rust -> Node-API -> Electron pipeline works.
