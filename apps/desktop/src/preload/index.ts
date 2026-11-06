@@ -4,6 +4,7 @@ import { IPC, type DeadLetterApi } from '../shared/api'
 const api: DeadLetterApi = {
   ping: () => ipcRenderer.invoke(IPC.ping),
   executeRequest: (req) => ipcRenderer.invoke(IPC.executeRequest, req),
+  formatJson: (text) => ipcRenderer.invoke(IPC.formatJson, text),
   setDirty: (dirty) => ipcRenderer.send(IPC.setDirty, dirty),
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet),

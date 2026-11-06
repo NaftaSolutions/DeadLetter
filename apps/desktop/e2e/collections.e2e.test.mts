@@ -38,7 +38,7 @@ test('open, edit, send and save an .http request without losing disabled headers
     await shot('02-request-open')
 
     await page.getByRole('button', { name: /^Send/ }).click()
-    await page.getByText(/"ok": ?true/).waitFor({ timeout: 8000 })
+    await page.getByText(/"ok":\s?true/).waitFor({ timeout: 8000 })
     await shot('03-response')
 
     await url.fill(`${api}/login2`)

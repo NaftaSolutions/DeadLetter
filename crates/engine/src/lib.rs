@@ -1,4 +1,5 @@
 mod collection;
+mod format;
 mod http;
 mod vars;
 

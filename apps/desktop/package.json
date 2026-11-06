@@ -11,7 +11,8 @@
     "test:e2e": "electron-vite build && node --test --test-concurrency=1 --test-timeout=60000 --test-reporter=spec e2e/*.test.mts"
   },
   "dependencies": {
-    "@deadletter/engine": "workspace:*"
+    "@deadletter/engine": "workspace:*",
+    "monaco-editor": "^0.57.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.4",

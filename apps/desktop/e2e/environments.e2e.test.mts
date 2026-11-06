@@ -35,7 +35,7 @@ test('environment variables are substituted on send and secrets stay out of the 
     await eventually(async () => (await url.inputValue()) === 'http://x', 'request opened')
     await url.fill('{{base}}/{{seg}}')
     await page.getByRole('button', { name: /^Send/ }).click()
-    await page.getByText(/"path": ?"\/hunter2"/).waitFor({ timeout: 8000 })
+    await page.getByText(/"path":\s?"\/hunter2"/).waitFor({ timeout: 8000 })
     await shot('06-substituted-response')
 
     await url.fill('{{base}}/{{nope}}')

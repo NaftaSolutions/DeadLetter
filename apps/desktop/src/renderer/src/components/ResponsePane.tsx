@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import type { ResponsePayload } from '@shared/api'
+import { parseSetCookies } from '../cookies'
 import type { SendState } from '../useSend'
+import { useResponseBody } from '../useResponseBody'
+import { BodyToolbar } from './BodyToolbar'
 import { Tabs } from './Tabs'
 
-type Tab = 'body' | 'headers'
+const CodeViewer = lazy(() => import('./CodeViewer').then((m) => ({ default: m.CodeViewer })))
 
-const PRETTY_LIMIT = 1_000_000
+type Tab = 'body' | 'cookies' | 'headers'
 
 function statusTone(status: number): string {
   if (status >= 500) return 'border-red-900 bg-red-950/50 text-red-300'
@@ -23,24 +26,16 @@ function formatSize(bytes: number): string {
 
 const formatTime = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${Math.round(ms)} ms`)
 
-function prettyBody(res: ResponsePayload): string {
-  if (res.sizeBytes > PRETTY_LIMIT) return res.body
-  const looksJson = /json/i.test(res.headers.find((h) => h.name === 'content-type')?.value ?? '')
-  if (!looksJson) return res.body
-  try {
-    return JSON.stringify(JSON.parse(res.body), null, 2)
-  } catch {
-    return res.body
-  }
-}
-
 function Empty({ children }: { children: string }) {
   return <div className="flex flex-1 items-center justify-center text-zinc-600">{children}</div>
 }
 
 function Loaded({ res }: { res: ResponsePayload }) {
   const [tab, setTab] = useState<Tab>('body')
-  const body = useMemo(() => prettyBody(res), [res])
+  const [raw, setRaw] = useState(false)
+  const [wrap, setWrap] = useState(true)
+  const { text, language, canPrettify } = useResponseBody(res, raw)
+  const cookies = parseSetCookies(res.headers)
 
   return (
     <>
@@ -50,6 +45,7 @@ function Loaded({ res }: { res: ResponsePayload }) {
         onChange={setTab}
         tabs={[
           { id: 'body', label: 'Body' },
+          { id: 'cookies', label: 'Cookies', count: cookies.length },
           { id: 'headers', label: 'Headers', count: res.headers.length }
         ]}
         trailing={
@@ -57,26 +53,61 @@ function Loaded({ res }: { res: ResponsePayload }) {
             <span className={`rounded border px-1.5 py-0.5 font-semibold ${statusTone(res.status)}`}>
               {res.status} {res.statusText}
             </span>
-            <span>{formatTime(res.latencyMs)}</span>
+            <span title="Time until the full body was received">{formatTime(res.latencyMs)}</span>
             <span>{formatSize(res.sizeBytes)}</span>
           </div>
         }
       />
+      {tab === 'body' && res.body && (
+        <BodyToolbar
+          canPrettify={canPrettify}
+          raw={raw}
+          wrap={wrap}
+          text={text}
+          onRaw={setRaw}
+          onWrap={setWrap}
+        />
+      )}
       <div
         id="panel-response"
         role="tabpanel"
         aria-labelledby={`tab-response-${tab}`}
-        className="min-h-0 flex-1 overflow-auto"
+        className={`min-h-0 flex-1 ${tab === 'body' && res.body ? 'overflow-hidden' : 'overflow-auto'}`}
       >
-        {tab === 'body' ? (
-          res.body ? (
-            <pre className="whitespace-pre-wrap break-words p-3 font-mono text-xs leading-relaxed text-zinc-300">
-              {body}
-            </pre>
+        {tab === 'body' &&
+          (res.body ? (
+            <Suspense fallback={<div className="p-3 text-zinc-600">Loading viewer…</div>}>
+              <CodeViewer value={text} language={language} wrap={wrap} />
+            </Suspense>
           ) : (
             <div className="p-3 text-zinc-600">Empty response body</div>
-          )
-        ) : (
+          ))}
+
+        {tab === 'cookies' &&
+          (cookies.length === 0 ? (
+            <div className="p-3 text-zinc-600">This response did not set any cookies</div>
+          ) : (
+            <table className="w-full border-collapse text-left font-mono text-xs">
+              <thead className="text-[11px] uppercase tracking-wide text-zinc-500">
+                <tr className="border-b border-zinc-800">
+                  <th className="px-3 py-1.5 font-medium">Name</th>
+                  <th className="px-3 py-1.5 font-medium">Value</th>
+                  <th className="px-3 py-1.5 font-medium">Attributes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cookies.map((c, i) => (
+                  <tr key={i} className="border-b border-zinc-900 align-top">
+                    <td className="px-3 py-1.5 text-zinc-300">{c.name}</td>
+                    <td className="break-all px-3 py-1.5 text-zinc-300">{c.value}</td>
+                    <td className="px-3 py-1.5 text-zinc-500">{c.attributes.join('; ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+
+        {tab === 'headers' && (
           <dl className="grid grid-cols-[minmax(8rem,max-content)_1fr] gap-x-4 gap-y-1 p-3 font-mono text-xs">
             {res.headers.map((h, i) => (
               <div key={i} className="contents">

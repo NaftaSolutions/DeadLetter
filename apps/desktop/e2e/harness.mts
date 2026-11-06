@@ -64,6 +64,9 @@ export async function withApp(opts: Options, fn: (ctx: Ctx) => Promise<void>): P
 
   const server: Server = createServer((req, res) => {
     res.setHeader('content-type', 'application/json')
+    if (req.url === '/cookies') {
+      res.setHeader('set-cookie', ['sid=abc123; Path=/; HttpOnly', 'theme=dark; Max-Age=3600'])
+    }
     res.end(JSON.stringify({ ok: true, method: req.method, path: req.url }))
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))

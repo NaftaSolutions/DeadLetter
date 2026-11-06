@@ -26,6 +26,7 @@ export interface Settings {
 export const IPC = {
   ping: 'engine:ping',
   executeRequest: 'engine:executeRequest',
+  formatJson: 'engine:formatJson',
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsChooseWorkspace: 'settings:chooseWorkspace',
@@ -51,6 +52,9 @@ export interface DeadLetterApi {
   ping(): Promise<string>
   /** Runs an HTTP request in the Rust engine. Rejects with a readable message on failure. */
   executeRequest(req: RequestPayload): Promise<ResponsePayload>
+
+  /** Pretty-prints JSON on a Rust worker thread; resolves to null when the text is not valid JSON. */
+  formatJson(text: string): Promise<string | null>
 
   /** Tells the main process whether closing the window would lose unsaved edits. */
   setDirty(dirty: boolean): void

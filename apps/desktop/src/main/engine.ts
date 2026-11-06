@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { executeRequest, ping, readEnvironment } from '@deadletter/engine'
+import { executeRequest, formatJson, ping, readEnvironment } from '@deadletter/engine'
 import { IPC, type RequestPayload } from '../shared/api'
 import { getSettings, workspaceRoot } from './settings'
 
@@ -19,5 +19,6 @@ function activeVariables(): { name: string; value: string }[] {
 
 export function registerEngineIpc(): void {
   ipcMain.handle(IPC.ping, () => ping())
+  ipcMain.handle(IPC.formatJson, (_event, text: string) => formatJson(text))
   ipcMain.handle(IPC.executeRequest, (_event, req: RequestPayload) => executeRequest(req, activeVariables()))
 }
