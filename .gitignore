@@ -5,4 +5,4 @@ target/
 *.node
 crates/engine/index.js
 crates/engine/index.d.ts
-*.log
+*.logtest-results/

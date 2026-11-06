@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
+import { guardClose, registerCloseGuardIpc } from './closeGuard'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -17,6 +18,7 @@ function createWindow(): void {
       sandbox: true
     }
   })
+  guardClose(win)
   win.once('ready-to-show', () => win.show())
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -29,6 +31,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   registerEngineIpc()
   registerCollectionIpc()
+  registerCloseGuardIpc()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

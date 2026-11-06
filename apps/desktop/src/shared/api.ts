@@ -33,7 +33,9 @@ export const IPC = {
   collectionRename: 'collection:rename',
   collectionRemove: 'collection:remove',
   /** main -> renderer push: files in the workspace changed on disk. */
-  collectionChanged: 'collection:changed'
+  collectionChanged: 'collection:changed',
+  /** renderer -> main: whether the open request has unsaved edits (guards window close). */
+  setDirty: 'app:setDirty'
 } as const
 
 export interface DeadLetterApi {
@@ -41,6 +43,9 @@ export interface DeadLetterApi {
   ping(): Promise<string>
   /** Runs an HTTP request in the Rust engine. Rejects with a readable message on failure. */
   executeRequest(req: RequestPayload): Promise<ResponsePayload>
+
+  /** Tells the main process whether closing the window would lose unsaved edits. */
+  setDirty(dirty: boolean): void
 
   settings: {
     get(): Promise<Settings>

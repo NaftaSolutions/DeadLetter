@@ -77,10 +77,7 @@ export function useOpenRequest(onError: (e: unknown) => void) {
   draftRef.current = draft
 
   useEffect(() => {
-    if (!dirty) return
-    const warn = (e: BeforeUnloadEvent): void => e.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
+    window.deadletter.setDirty(dirty)
   }, [dirty])
 
   const patch = useCallback((p: Partial<RequestDraft>) => setDraft((d) => ({ ...d, ...p })), [])

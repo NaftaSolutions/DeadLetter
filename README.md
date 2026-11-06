@@ -18,3 +18,12 @@ Requests live as plain files in a workspace folder you pick (Settings, or the si
 
 - `.http` (default), one request per file: `### name`, request line, headers, blank line, body. Disabled headers are written as `# Name: value` comments.
 - `.json`: `{ "name", "method", "url", "headers": [{ "name", "value", "enabled" }], "body" }`.
+
+## Tests
+
+```sh
+pnpm test        # Rust unit tests (file formats, storage, path safety)
+pnpm test:e2e    # builds, then drives the real Electron app with Playwright (apps/desktop/e2e)
+```
+
+The e2e suite uses temp workspaces and a local HTTP server, needs no browser download, and writes screenshots to `apps/desktop/test-results/` (git-ignored).

@@ -6,6 +6,8 @@
     "dev": "pnpm build:engine && pnpm --filter @deadletter/desktop dev",
     "build": "pnpm build:engine && pnpm --filter @deadletter/desktop build",
     "build:engine": "pnpm --filter @deadletter/engine build",
-    "typecheck": "pnpm --filter @deadletter/desktop typecheck"
+    "typecheck": "pnpm --filter @deadletter/desktop typecheck",
+    "test": "cargo test -p engine",
+    "test:e2e": "pnpm build:engine && pnpm --filter @deadletter/desktop test:e2e"
   }
 }
