@@ -5,6 +5,44 @@ use std::time::{Duration, Instant};
 use napi::{Error, Result, Status};
 use napi_derive::napi;
 use crate::vars::substitute;
+
+const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn base64(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(BASE64[(n >> (18 - 6 * i) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+/// `Authorization: Basic user:pass` (or `user pass`) is encoded to base64 at send time, the way
+/// the VS Code REST Client and JetBrains HTTP Client do; an already-encoded value is untouched.
+fn encode_basic_auth(value: &str) -> String {
+    let Some(rest) = value.trim().strip_prefix("Basic ").map(str::trim) else { return value.to_string() };
+    if !rest.contains(':') && !rest.contains(char::is_whitespace) {
+        return value.to_string();
+    }
+    let credentials = match rest.split_once(':') {
+        Some((user, pass)) => format!("{user}:{pass}"),
+        None => rest.split_once(char::is_whitespace).map(|(u, p)| format!("{u}:{}", p.trim())).unwrap_or_default(),
+    };
+    format!("Basic {}", base64(credentials.as_bytes()))
+}
+
+fn is_form_content_type(headers: &[HeaderEntry]) -> bool {
+    headers.iter().any(|h| {
+        h.name.trim().eq_ignore_ascii_case("content-type")
+            && h.value.trim().to_ascii_lowercase().starts_with("application/x-www-form-urlencoded")
+    })
+}
 use reqwest::{header::{HeaderName, HeaderValue}, Client, Method};
 
 #[napi(object)]
@@ -68,8 +106,8 @@ fn with_scheme(url: String) -> String {
 fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPayload> {
     let vars: HashMap<String, String> = variables.into_iter().map(|v| (v.name, v.value)).collect();
     let mut missing: Vec<String> = Vec::new();
-    let mut apply = |text: &str| {
-        let (out, m) = substitute(text, &vars);
+    let mut apply = |text: &str, encode: bool| {
+        let (out, m) = substitute(text, &vars, encode);
         for name in m {
             if !missing.contains(&name) {
                 missing.push(name);
@@ -77,16 +115,21 @@ fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPa
         }
         out
     };
-    let resolved = RequestPayload {
-        method: req.method,
-        url: with_scheme(apply(&req.url)),
-        headers: req
-            .headers
-            .iter()
-            .map(|h| HeaderEntry { name: apply(&h.name), value: apply(&h.value) })
-            .collect(),
-        body: req.body.as_deref().map(&mut apply),
-    };
+    let url = with_scheme(apply(&req.url, false));
+    let headers: Vec<HeaderEntry> = req
+        .headers
+        .iter()
+        .map(|h| {
+            let name = apply(&h.name, false);
+            let value = apply(&h.value, false);
+            let value = if name.trim().eq_ignore_ascii_case("authorization") { encode_basic_auth(&value) } else { value };
+            HeaderEntry { name, value }
+        })
+        .collect();
+    // Variable values in a form body must not break out of their field.
+    let encode_body = is_form_content_type(&headers);
+    let body = req.body.as_deref().map(|b| apply(b, encode_body));
+    let resolved = RequestPayload { method: req.method, url, headers, body };
     if missing.is_empty() {
         return Ok(resolved);
     }
@@ -168,6 +211,29 @@ fn describe(e: reqwest::Error) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encodes_basic_auth_like_rest_clients() {
+        // base64("user:pass") = dXNlcjpwYXNz, base64("a:") = YTo=, base64("ab:c") = YWI6Yw==
+        assert_eq!(encode_basic_auth("Basic user:pass"), "Basic dXNlcjpwYXNz");
+        assert_eq!(encode_basic_auth("Basic user pass"), "Basic dXNlcjpwYXNz");
+        assert_eq!(encode_basic_auth("Basic a:"), "Basic YTo=");
+        assert_eq!(encode_basic_auth("Basic ab:c"), "Basic YWI6Yw==");
+        assert_eq!(encode_basic_auth("Basic dXNlcjpwYXNz"), "Basic dXNlcjpwYXNz");
+        assert_eq!(encode_basic_auth("Bearer a:b"), "Bearer a:b");
+    }
+
+    #[test]
+    fn form_bodies_encode_substituted_values_only() {
+        let req = RequestPayload {
+            method: "POST".into(),
+            url: "x".into(),
+            headers: vec![HeaderEntry { name: "Content-Type".into(), value: "application/x-www-form-urlencoded".into() }],
+            body: Some("a=1&b={{v}}".into()),
+        };
+        let vars = vec![HeaderEntry { name: "v".into(), value: "x y&z".into() }];
+        assert_eq!(resolve(req, vars).unwrap().body.as_deref(), Some("a=1&b=x%20y%26z"));
+    }
 
     #[test]
     fn adds_scheme_only_when_missing() {

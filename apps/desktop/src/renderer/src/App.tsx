@@ -188,7 +188,7 @@ export function App() {
             onSend={() => sendRef.current()}
           />
           <main className="flex min-h-0 flex-1 flex-col">
-            <RequestPane draft={draft} onChange={patch} />
+            <RequestPane key={path ?? ''} draft={draft} onChange={patch} />
             <ResponsePane state={state} />
           </main>
         </div>

@@ -8,6 +8,12 @@ import 'monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching'
 import 'monaco-editor/editor/contrib/clipboard/browser/clipboard'
 import 'monaco-editor/editor/contrib/contextmenu/browser/contextmenu'
 import 'monaco-editor/editor/contrib/wordHighlighter/browser/wordHighlighter'
+// Services that editor contributions pull in. They must be registered before the first editor
+// is created, which the lazily loaded JSON language chunk would otherwise do too late.
+import 'monaco-editor/editor/common/services/treeViewsDndService'
+import 'monaco-editor/editor/contrib/codelens/browser/codeLensCache'
+import 'monaco-editor/editor/contrib/inlayHints/browser/inlayHintsController'
+import 'monaco-editor/editor/contrib/suggest/browser/suggestMemory'
 import { jsonDefaults } from 'monaco-editor/language/json/monaco.contribution'
 import 'monaco-editor/languages/definitions/xml/register'
 import 'monaco-editor/languages/definitions/html/register'

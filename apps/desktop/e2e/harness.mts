@@ -67,7 +67,21 @@ export async function withApp(opts: Options, fn: (ctx: Ctx) => Promise<void>): P
     if (req.url === '/cookies') {
       res.setHeader('set-cookie', ['sid=abc123; Path=/; HttpOnly', 'theme=dark; Max-Age=3600'])
     }
-    res.end(JSON.stringify({ ok: true, method: req.method, path: req.url }))
+    // Echoes what the engine actually sent, so tests can check auth, content type and body.
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      res.end(
+        JSON.stringify({
+          ok: true,
+          method: req.method,
+          path: req.url,
+          auth: req.headers.authorization ?? null,
+          type: req.headers['content-type'] ?? null,
+          body: Buffer.concat(chunks).toString('utf8')
+        })
+      )
+    })
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const port = (server.address() as { port: number }).port

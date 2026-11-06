@@ -8,6 +8,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:unit": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/renderer/src/*.test.mts",
     "test:e2e": "electron-vite build && node --test --test-concurrency=1 --test-timeout=60000 --test-reporter=spec e2e/*.test.mts"
   },
   "dependencies": {

@@ -23,6 +23,14 @@ Requests live as plain files in a workspace folder you pick (Settings, or the si
 
 Pick an environment in the header, then use `{{variable}}` in a request's URL, headers or body. Environments live in `.deadletter/environments/<name>.json` inside the workspace, so they travel with git. Variables marked secret keep their values in `<name>.secrets.json` next to it; a generated `.gitignore` there keeps that file out of commits. Sending a request that uses an undefined variable fails with a message naming it.
 
+## Auth and body types
+
+The Auth and Body tabs are editors over plain request data, so files stay portable and nothing new is stored:
+
+- **Bearer / Basic** write the `Authorization` header (`Bearer {{token}}`, `Basic user:pass`). Basic credentials are base64-encoded when the request is sent, the same convention as the VS Code REST Client and JetBrains HTTP Client. Use `{{variables}}` so real credentials stay out of git. API keys are just a header or a query parameter.
+- **Form (urlencoded)** writes `Content-Type: application/x-www-form-urlencoded` and a `a=1&b=2` body; `{{variable}}` values are percent-encoded on send.
+- **GraphQL** writes `Content-Type: application/json` and the standard `{ "query", "variables" }` envelope. A file in that shape reopens in GraphQL mode.
+
 ## Response viewer
 
 Bodies open in a read-only Monaco editor (syntax highlighting, folding, Ctrl+F search) with Pretty/Raw, Wrap and Copy. JSON is pretty-printed by the Rust engine on a worker thread, keeping key order and big numbers intact. The Cookies tab lists every `Set-Cookie` header; Headers shows them all, duplicates included. Monaco loads on first use and runs fully offline.
@@ -30,7 +38,7 @@ Bodies open in a read-only Monaco editor (syntax highlighting, folding, Ctrl+F s
 ## Tests
 
 ```sh
-pnpm test        # Rust unit tests (file formats, storage, path safety)
+pnpm test        # Rust unit tests (formats, storage, substitution) and renderer logic tests
 pnpm test:e2e    # builds, then drives the real Electron app with Playwright (apps/desktop/e2e)
 ```
 

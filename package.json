@@ -7,7 +7,7 @@
     "build": "pnpm build:engine && pnpm --filter @deadletter/desktop build",
     "build:engine": "pnpm --filter @deadletter/engine build",
     "typecheck": "pnpm --filter @deadletter/desktop typecheck",
-    "test": "cargo test -p engine",
+    "test": "cargo test -p engine && pnpm --filter @deadletter/desktop test:unit",
     "test:e2e": "pnpm build:engine && pnpm --filter @deadletter/desktop test:e2e"
   }
 }
