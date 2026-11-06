@@ -13,6 +13,7 @@ const api: DeadLetterApi = {
   },
   interop: {
     importFile: () => ipcRenderer.invoke(IPC.interopImportFile),
+    importFolder: () => ipcRenderer.invoke(IPC.interopImportFolder),
     importCurl: (command) => ipcRenderer.invoke(IPC.interopImportCurl, command),
     copyCurl: (request) => ipcRenderer.invoke(IPC.interopCopyCurl, request),
     exportPostman: () => ipcRenderer.invoke(IPC.interopExportPostman)

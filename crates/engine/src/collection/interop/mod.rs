@@ -1,6 +1,7 @@
 //! Import and export: cURL, Postman, Insomnia and OpenAPI in; cURL and Postman out.
 //! Everything is plain data in, plain data out; the app decides what to write where.
 
+mod bruno;
 mod curl;
 mod har;
 mod hoppscotch;
@@ -33,7 +34,7 @@ pub struct ImportedRequest {
 #[napi(object)]
 #[derive(Debug)]
 pub struct ImportResult {
-    /// `"postman"`, `"insomnia"`, `"openapi"`, `"hoppscotch"`, `"har"` or `"http"`.
+    /// `"postman"`, `"insomnia"`, `"openapi"`, `"hoppscotch"`, `"har"`, `"http"` or `"bruno"`.
     pub source: String,
     /// Collection title; used as the name of the folder the requests are written to.
     pub name: String,
@@ -110,6 +111,12 @@ pub fn parse_document(text: &str) -> std::result::Result<ImportResult, String> {
 #[napi]
 pub fn parse_import(text: String) -> Result<ImportResult> {
     fail(parse_document(&text))
+}
+
+/// Reads a Bruno collection folder (`bruno.json` + `.bru` files + environments).
+#[napi]
+pub fn parse_bruno(dir: String) -> Result<ImportResult> {
+    fail(bruno::import_dir(std::path::Path::new(&dir)))
 }
 
 /// Parses a cURL command line into a request.

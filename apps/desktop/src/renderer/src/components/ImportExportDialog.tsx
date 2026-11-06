@@ -17,7 +17,8 @@ const SOURCES: Record<string, string> = {
   openapi: 'OpenAPI',
   hoppscotch: 'Hoppscotch',
   har: 'a HAR file',
-  http: 'an .http file'
+  http: 'an .http file',
+  bruno: 'Bruno'
 }
 
 const section = 'space-y-2 rounded-md border border-zinc-800 p-3'
@@ -53,6 +54,14 @@ export function ImportExportDialog({ onChanged, onCurlImported, onClose }: Props
   const importFile = () =>
     run(async () => {
       const result = await window.deadletter.interop.importFile()
+      if (!result) return
+      setOutcome(result)
+      await onChanged()
+    })
+
+  const importFolder = () =>
+    run(async () => {
+      const result = await window.deadletter.interop.importFolder()
       if (!result) return
       setOutcome(result)
       await onChanged()
@@ -134,10 +143,15 @@ export function ImportExportDialog({ onChanged, onCurlImported, onClose }: Props
           <h3 className="flex items-center gap-1.5 font-medium text-zinc-300"><FileUp className="size-3.5" /> From a file</h3>
           <p className="text-zinc-500">
             Postman (collections and environments), Insomnia (v4 and v5), OpenAPI / Swagger (JSON or YAML), Hoppscotch,
-            HAR exports from browser dev tools, and .http files from VS Code or JetBrains. Requests are written to a new
+            HAR exports from browser dev tools, .http files from VS Code or JetBrains, and Bruno collection folders. Requests are written to a new
             folder, and variables become new environments. Nothing is overwritten.
           </p>
-          <button type="button" disabled={busy} onClick={() => void importFile()} className={secondary}>Choose file…</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={busy} onClick={() => void importFile()} className={secondary}>Choose file…</button>
+            <button type="button" disabled={busy} onClick={() => void importFolder()} className={secondary} title="A folder of .bru files with a bruno.json">
+              Bruno folder…
+            </button>
+          </div>
         </section>
 
         <section className={section} aria-label="Import from cURL">

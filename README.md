@@ -28,6 +28,7 @@ Pick an environment in the header, then use `{{variable}}` in a request's URL, h
 The arrows button in the header opens Import & export:
 
 - **From a file:** Postman (collections, environments), Insomnia (v4 JSON, v5 YAML), OpenAPI 3 / Swagger 2 (JSON or YAML), Hoppscotch, HAR exports from browser dev tools, and `.http` files with several requests (VS Code REST Client, JetBrains; `@var = value` lines become variables). Requests land in a new folder named after the collection (nothing is overwritten) and variables become new environments, secrets kept out of git. OpenAPI path parameters become `{{variables}}` and security schemes become auth headers. Anything that cannot be represented (scripts, multipart bodies, unsupported auth) is listed instead of silently dropped.
+- **Bruno folder:** a collection folder (with `bruno.json`) is imported in Bruno's own order. Collection-level headers and auth are applied to requests that inherit them, `:path` params are filled in, and `environments/*.bru` become environments (secret values are never in those files, so they come in empty).
 - **From a cURL command:** paste one, including browsers' *Copy as cURL* output (bash or cmd).
 - **Export:** the whole workspace as a Postman v2.1 collection, or a single request via **Copy cURL** above the request (variables of the active environment are filled in).
 

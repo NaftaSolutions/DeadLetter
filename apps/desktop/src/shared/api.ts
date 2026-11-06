@@ -44,6 +44,7 @@ export const IPC = {
   settingsUpdate: 'settings:update',
   settingsChooseWorkspace: 'settings:chooseWorkspace',
   interopImportFile: 'interop:importFile',
+  interopImportFolder: 'interop:importFolder',
   interopImportCurl: 'interop:importCurl',
   interopCopyCurl: 'interop:copyCurl',
   interopExportPostman: 'interop:exportPostman',
@@ -87,6 +88,8 @@ export interface DeadLetterApi {
   interop: {
     /** Native file picker, then a Postman / Insomnia / OpenAPI / Hoppscotch / HAR / .http file is written to a new workspace folder (plus environments). Null if cancelled. */
     importFile(): Promise<ImportOutcome | null>
+    /** Native folder picker, then a Bruno collection folder is written to a new workspace folder (plus environments). Null if cancelled. */
+    importFolder(): Promise<ImportOutcome | null>
     /** Creates a request in the workspace root from a pasted cURL command; resolves with its path. */
     importCurl(command: string): Promise<string>
     /** Copies the request as a cURL command (variables of the active environment filled in); resolves with the text. */

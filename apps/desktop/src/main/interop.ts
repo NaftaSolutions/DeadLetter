@@ -5,6 +5,7 @@ import {
   createRequest,
   exportPostman,
   listEnvironments,
+  parseBruno,
   parseCurl,
   parseImport,
   requestToCurl,
@@ -51,7 +52,21 @@ async function importFile(event: Electron.IpcMainInvokeEvent): Promise<ImportOut
   if (picked.canceled || !file) return null
 
   if (statSync(file).size > MAX_IMPORT_BYTES) throw new Error('That file is too large to import (limit 25 MB)')
-  const parsed = parseImport(readFileSync(file, 'utf8'))
+  return applyImport(r, parseImport(readFileSync(file, 'utf8')))
+}
+
+async function importFolder(event: Electron.IpcMainInvokeEvent): Promise<ImportOutcome | null> {
+  const r = root()
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const options: Electron.OpenDialogOptions = { title: 'Import a Bruno collection folder', properties: ['openDirectory'] }
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  const dir = picked.filePaths[0]
+  if (picked.canceled || !dir) return null
+  return applyImport(r, parseBruno(dir))
+}
+
+/** Writes a parsed import into the workspace: a new folder of requests plus its environments. */
+function applyImport(r: string, parsed: ReturnType<typeof parseImport>): ImportOutcome {
   const summary = writeImport(r, '', parsed, getSettings().preferredFormat)
 
   // Collection variables become one environment, the source's own environments are kept as they are.
@@ -91,6 +106,7 @@ async function exportCollection(event: Electron.IpcMainInvokeEvent): Promise<str
 
 export function registerInteropIpc(): void {
   ipcMain.handle(IPC.interopImportFile, (e) => importFile(e))
+  ipcMain.handle(IPC.interopImportFolder, (e) => importFolder(e))
   ipcMain.handle(IPC.interopImportCurl, (_e, command: string) => {
     const r = root()
     const req = parseCurl(command)
