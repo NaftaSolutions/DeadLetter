@@ -66,16 +66,30 @@ for (const mb of sizesMb) {
   const t = performance.now()
   await page.getByRole('button', { name: /^Send/ }).click()
   let shown = -1
+  let pretty = -1
+  let asReceived = ''
+  const format = page.getByRole('button', { name: 'Format', exact: true })
   try {
     await page.getByLabel('Response summary').waitFor({ timeout: 90000 })
+    await page.getByTestId('code-viewer').locator('.view-line').first().waitFor({ timeout: 90000 })
     shown = performance.now() - t
-    await page.getByRole('button', { name: 'Raw', exact: true }).waitFor({ timeout: 90000 }) // pretty-print finished
+    await new Promise((r) => setTimeout(r, 800))
+    asReceived = await memory()
+    if (await format.count()) {
+      await page.evaluate(() => ((window as unknown as { __long: number[] }).__long.length = 0))
+      const tf = performance.now()
+      await format.click()
+      await page.getByRole('button', { name: 'Raw', exact: true }).waitFor({ timeout: 90000 })
+      pretty = performance.now() - tf
+    } else {
+      await page.getByRole('button', { name: 'Raw', exact: true }).waitFor({ timeout: 90000 })
+      pretty = performance.now() - t
+    }
   } catch {}
-  const pretty = performance.now() - t
   await new Promise((r) => setTimeout(r, 500))
   const long = await page.evaluate(() => (window as unknown as { __long: number[] }).__long)
   const worst = long.length ? Math.max(...long) : 0
-  console.log(`${mb} MB response: summary ${shown.toFixed(0)} ms, pretty ${pretty.toFixed(0)} ms, ${long.length} long tasks, worst ${worst.toFixed(0)} ms, ${await memory()}`)
+  console.log(`${mb} MB: visible ${shown.toFixed(0)} ms (${asReceived}); pretty ${pretty.toFixed(0)} ms${mb > 2 ? ' after Format click' : ''}, ${long.length} long tasks, worst ${worst.toFixed(0)} ms, ${await memory()}`)
 }
 
 await Promise.race([app.close(), new Promise((r) => setTimeout(r, 5000))])

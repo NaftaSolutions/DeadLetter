@@ -7,21 +7,42 @@ interface Props {
   value: string
   language: ViewerLanguage
   wrap: boolean
+  /** Big payload: switch off per-character features that cost memory and time. */
+  large: boolean
 }
 
 /** Read-only Monaco instance. Monaco is imported on first use to keep startup fast. */
-export function CodeViewer({ value, language, wrap }: Props) {
+const HEAVY_OFF = {
+  bracketPairColorization: { enabled: false },
+  guides: { bracketPairs: false, indentation: false },
+  matchBrackets: 'never',
+  stickyScroll: { enabled: false },
+  hover: { enabled: 'off' },
+  links: false,
+  colorDecorators: false
+} as const
+const HEAVY_ON = {
+  bracketPairColorization: { enabled: true },
+  guides: { bracketPairs: false, indentation: true },
+  matchBrackets: 'always',
+  stickyScroll: { enabled: true },
+  hover: { enabled: 'on' },
+  links: true,
+  colorDecorators: true
+} as const
+
+export function CodeViewer({ value, language, wrap, large }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const instance = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const latest = useRef({ value, language, wrap })
-  latest.current = { value, language, wrap }
+  const latest = useRef({ value, language, wrap, large })
+  latest.current = { value, language, wrap, large }
 
   useEffect(() => {
     let disposed = false
     let created: editor.IStandaloneCodeEditor | null = null
     void import('../monaco').then(({ monaco }) => {
       if (disposed || !host.current) return
-      const { value, language, wrap } = latest.current
+      const { value, language, wrap, large } = latest.current
       created = monaco.editor.create(host.current, {
         value,
         language,
@@ -31,7 +52,9 @@ export function CodeViewer({ value, language, wrap }: Props) {
         automaticLayout: true,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        wordWrap: wrap ? 'on' : 'off',
+        // Wrapping a multi-megabyte body means measuring every line; not worth it.
+        wordWrap: wrap && !large ? 'on' : 'off',
+        ...(large ? HEAVY_OFF : {}),
         fontSize: 12,
         lineNumbersMinChars: 3,
         folding: true,
@@ -59,8 +82,8 @@ export function CodeViewer({ value, language, wrap }: Props) {
       const m = ed.getModel()
       if (m) monaco.editor.setModelLanguage(m, language)
     })
-    ed.updateOptions({ wordWrap: wrap ? 'on' : 'off' })
-  }, [value, language, wrap])
+    ed.updateOptions({ wordWrap: wrap && !large ? 'on' : 'off', ...(large ? HEAVY_OFF : HEAVY_ON) })
+  }, [value, language, wrap, large])
 
   return <div ref={host} data-testid="code-viewer" className="h-full w-full" />
 }

@@ -3,6 +3,9 @@ import { Check, Copy, WrapText } from 'lucide-react'
 
 interface Props {
   canPrettify: boolean
+  /** Large JSON is shown unformatted until the user asks. */
+  needsFormat: boolean
+  onFormat: () => void
   raw: boolean
   wrap: boolean
   /** What the viewer currently shows; this is what Copy puts on the clipboard. */
@@ -13,7 +16,7 @@ interface Props {
 
 const btn = 'flex items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
 
-export function BodyToolbar({ canPrettify, raw, wrap, text, onRaw, onWrap }: Props) {
+export function BodyToolbar({ canPrettify, needsFormat, onFormat, raw, wrap, text, onRaw, onWrap }: Props) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
@@ -45,6 +48,11 @@ export function BodyToolbar({ canPrettify, raw, wrap, text, onRaw, onWrap }: Pro
             )
           })}
         </div>
+      )}
+      {needsFormat && (
+        <button type="button" onClick={onFormat} className={btn} title="Large response: shown as received. Pretty-printing it uses more memory.">
+          Format
+        </button>
       )}
       <button type="button" aria-pressed={wrap} onClick={() => onWrap(!wrap)} className={`${btn} ${wrap ? 'text-zinc-100' : ''}`}>
         <WrapText className="size-3.5" /> Wrap

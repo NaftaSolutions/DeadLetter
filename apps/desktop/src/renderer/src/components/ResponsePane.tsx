@@ -34,7 +34,7 @@ function Loaded({ res }: { res: ResponsePayload }) {
   const [tab, setTab] = useState<Tab>('body')
   const [raw, setRaw] = useState(false)
   const [wrap, setWrap] = useState(true)
-  const { text, language, canPrettify } = useResponseBody(res, raw)
+  const { text, language, canPrettify, large, needsFormat, format } = useResponseBody(res, raw)
   const cookies = parseSetCookies(res.headers)
 
   return (
@@ -61,6 +61,8 @@ function Loaded({ res }: { res: ResponsePayload }) {
       {tab === 'body' && res.body && (
         <BodyToolbar
           canPrettify={canPrettify}
+          needsFormat={needsFormat}
+          onFormat={format}
           raw={raw}
           wrap={wrap}
           text={text}
@@ -77,7 +79,7 @@ function Loaded({ res }: { res: ResponsePayload }) {
         {tab === 'body' &&
           (res.body ? (
             <Suspense fallback={<div className="p-3 text-zinc-600">Loading viewer…</div>}>
-              <CodeViewer value={text} language={language} wrap={wrap} />
+              <CodeViewer value={text} language={language} wrap={wrap} large={large} />
             </Suspense>
           ) : (
             <div className="p-3 text-zinc-600">Empty response body</div>
