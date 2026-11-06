@@ -7,7 +7,7 @@ use crate::http::encode_basic_auth;
 use crate::collection::environment::{EnvVariable, Environment};
 
 use super::util::{
-    decode_field, append_query, basic, bearer, content_type, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE,
+    multipart_fields, set_multipart, decode_field, append_query, basic, bearer, content_type, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE,
     JSON_CONTENT_TYPE,
 };
 use super::{ImportResult, ImportedRequest};
@@ -119,12 +119,21 @@ fn body_of(body: &Value, req: &mut RequestFile, ctx: &mut Ctx) {
             req.body = serde_json::to_string_pretty(&Value::Object(env)).ok();
             default_header(req, "Content-Type", JSON_CONTENT_TYPE);
         }
-        "formdata" | "file" | "binary" => {
-            let kind = match body["mode"].as_str() {
-                Some("file") | Some("binary") => "file",
-                _ => "form-data",
-            };
-            ctx.warnings.push(format!("\"{}\": {kind} bodies are not supported; the body was left empty", req.name));
+        "formdata" => {
+            let items = body.get("formdata").and_then(Value::as_array).cloned().unwrap_or_default();
+            let live: Vec<&Value> = items.iter().filter(|f| !f.get("disabled").and_then(Value::as_bool).unwrap_or(false)).collect();
+            let files = live.iter().filter(|f| s(&f["type"]) == "file").count();
+            let fields: Vec<(String, String)> =
+                live.iter().filter(|f| s(&f["type"]) != "file").map(|f| (s(&f["key"]), s(&f["value"]))).collect();
+            if files > 0 {
+                ctx.warnings.push(format!("\"{}\": {files} file field(s) were skipped (file uploads are not supported)", req.name));
+            }
+            if !fields.is_empty() {
+                set_multipart(req, &fields);
+            }
+        }
+        "file" | "binary" => {
+            ctx.warnings.push(format!("\"{}\": file bodies are not supported; the body was left empty", req.name));
         }
         _ => {}
     }
@@ -263,10 +272,12 @@ fn query_pairs(url: &str) -> Vec<Value> {
 }
 
 pub fn request_to_postman(req: &RequestFile) -> Value {
+    let drop_ct = multipart_fields(req).is_some();
     let headers: Vec<Value> = req
         .headers
         .iter()
         .filter(|h| !h.name.trim().is_empty())
+        .filter(|h| !(drop_ct && h.name.trim().eq_ignore_ascii_case("content-type")))
         .map(|h| {
             let value = if h.name.trim().eq_ignore_ascii_case("authorization") { encode_basic_auth(&h.value) } else { h.value.clone() };
             let mut o = json!({ "key": h.name, "value": value });
@@ -284,7 +295,10 @@ pub fn request_to_postman(req: &RequestFile) -> Value {
     });
     if let Some(body) = req.body.as_deref().filter(|b| !b.is_empty()) {
         let ct = content_type(req).unwrap_or_default();
-        request["body"] = if ct.starts_with(FORM_CONTENT_TYPE) {
+        request["body"] = if let Some(fields) = multipart_fields(req) {
+            let items: Vec<Value> = fields.iter().map(|(k, v)| json!({ "key": k, "value": v, "type": "text" })).collect();
+            json!({ "mode": "formdata", "formdata": items })
+        } else if ct.starts_with(FORM_CONTENT_TYPE) {
             let fields: Vec<Value> = body
                 .split('&')
                 .filter(|p| !p.is_empty())
@@ -331,7 +345,7 @@ mod tests {
           { "name": "Login", "request": { "method": "POST", "auth": { "type": "basic", "basic": [{ "key": "username", "value": "ada" }, { "key": "password", "value": "pw" }] },
               "body": { "mode": "urlencoded", "urlencoded": [{ "key": "q", "value": "a b" }, { "key": "x", "value": "1", "disabled": true }] },
               "url": { "raw": "{{baseUrl}}/login" } } },
-          { "name": "Upload", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [] }, "url": "{{baseUrl}}/up" } }
+          { "name": "Upload", "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "a", "value": "1", "type": "text" }, { "key": "f", "type": "file", "src": "x.png" }] }, "url": "{{baseUrl}}/up" } }
         ] },
         { "name": "Ping", "request": { "method": "GET", "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "k" }, { "key": "value", "value": "{{k}}" }, { "key": "in", "value": "query" }] },
             "url": { "raw": "{{baseUrl}}/ping" } } }
@@ -363,8 +377,25 @@ mod tests {
         assert_eq!(r.requests[4].folder, "");
         assert_eq!(r.requests[4].request.url, "{{baseUrl}}/ping?k={{k}}");
 
-        assert!(r.warnings.iter().any(|w| w.contains("form-data bodies")));
+        assert!(r.warnings.iter().any(|w| w.contains("file field")));
+        assert!(r.requests[3].request.body.as_deref().unwrap().contains("name=\"a\"
+
+1
+"));
+        assert!(r.requests[3].request.headers.iter().any(|h| h.value == super::super::util::MULTIPART_CONTENT_TYPE));
         assert!(r.warnings.iter().any(|w| w.contains("scripts")));
+    }
+
+    #[test]
+    fn multipart_exports_as_formdata_and_round_trips() {
+        let mut req = RequestFile { name: "Up".into(), method: "POST".into(), url: "http://x/up".into(), headers: vec![], body: None };
+        set_multipart(&mut req, &[("a".to_string(), "1".to_string()), ("b".to_string(), "two words".to_string())]);
+        let doc = request_to_postman(&req);
+        assert_eq!(doc["request"]["body"]["mode"], "formdata");
+        assert_eq!(doc["request"]["body"]["formdata"][1]["value"], "two words");
+        assert!(doc["request"]["header"].as_array().unwrap().is_empty(), "boundary header is dropped");
+        let back = import(&collection("c", vec![doc])).unwrap();
+        assert_eq!(multipart_fields(&back.requests[0].request).unwrap().len(), 2);
     }
 
     #[test]

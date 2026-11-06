@@ -1,13 +1,16 @@
 // Body modes are a view over the body text plus the Content-Type header, so files remain
-// plain .http/.json: a urlencoded body is `a=1&b=2`, a GraphQL body is the usual JSON envelope.
+// plain .http/.json: a urlencoded body is `a=1&b=2`, a multipart body is the usual boundary-
+// delimited text, a GraphQL body is the usual JSON envelope.
 
 import { findHeader } from './headers.ts'
 import type { KeyValue } from './request.ts'
 
-export type BodyMode = 'raw' | 'urlencoded' | 'graphql'
+export type BodyMode = 'raw' | 'urlencoded' | 'multipart' | 'graphql'
 
 export const FORM_CONTENT_TYPE = 'application/x-www-form-urlencoded'
 export const JSON_CONTENT_TYPE = 'application/json'
+export const MULTIPART_BOUNDARY = '----DeadLetterFormBoundary'
+export const MULTIPART_CONTENT_TYPE = `multipart/form-data; boundary=${MULTIPART_BOUNDARY}`
 
 export interface Field {
   name: string
@@ -21,8 +24,15 @@ export interface GraphqlBody {
 }
 
 export function detectBodyMode(headers: KeyValue[], body: string): BodyMode {
-  const type = findHeader(headers, 'content-type')?.value.toLowerCase() ?? ''
+  const raw = findHeader(headers, 'content-type')?.value ?? ''
+  const type = raw.toLowerCase()
   if (type.startsWith(FORM_CONTENT_TYPE)) return 'urlencoded'
+  if (type.startsWith('multipart/form-data')) {
+    const boundary = boundaryOf(raw) // boundaries are case-sensitive
+
+    // Only text-field bodies are editable as a table; a body with files stays raw text.
+    if (boundary && (!body.trim() || parseMultipart(body, boundary))) return 'multipart'
+  }
   if (body.trim() && (!type || type.includes('json')) && parseGraphql(body)) return 'graphql'
   return 'raw'
 }
@@ -42,6 +52,50 @@ function decode(s: string): string {
   } catch {
     return s
   }
+}
+
+/** The `boundary=` of a multipart Content-Type value. */
+export function boundaryOf(contentType: string): string | null {
+  const m = /;\s*boundary="?([^";]+)"?/i.exec(contentType)
+  return m?.[1] ?? null
+}
+
+const LF = '\n'
+
+/** `.http`-style multipart body of text fields (plain line feeds; the engine sends CRLF). */
+export function serializeMultipart(fields: Field[], boundary = MULTIPART_BOUNDARY): string {
+  const parts = fields
+    .filter((f) => f.name.trim())
+    .map(
+      (f) =>
+        `--${boundary}${LF}Content-Disposition: form-data; name="${f.name.replace(/"/g, '%22')}"${LF}${LF}${f.value}${LF}`
+    )
+  return `${parts.join('')}--${boundary}--${LF}`
+}
+
+/** Text fields of a multipart body, or null if it has files or is not well-formed. */
+export function parseMultipart(body: string, boundary: string): Field[] | null {
+  const fields: Field[] = []
+  let closed = false
+  for (const chunk of body.replace(/\r\n/g, LF).split(`--${boundary}`).slice(1)) {
+    if (chunk.startsWith('--')) {
+      closed = true
+      break
+    }
+    if (!chunk.startsWith(LF)) return null
+    const sep = chunk.indexOf(LF + LF)
+    if (sep === -1) return null
+    const disposition = chunk
+      .slice(1, sep)
+      .split(LF)
+      .find((l) => l.toLowerCase().startsWith('content-disposition:'))
+    if (!disposition || /filename=/i.test(disposition)) return null
+    const name = /name="([^"]*)"/.exec(disposition)?.[1]
+    if (name === undefined) return null
+    const value = chunk.slice(sep + 2)
+    fields.push({ name: name.replace(/%22/g, '"'), value: value.endsWith(LF) ? value.slice(0, -1) : value })
+  }
+  return closed ? fields : null
 }
 
 export function parseUrlencoded(body: string): Field[] {

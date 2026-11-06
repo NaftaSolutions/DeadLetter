@@ -37,10 +37,9 @@ pub(crate) fn encode_basic_auth(value: &str) -> String {
     format!("Basic {}", base64(credentials.as_bytes()))
 }
 
-fn is_form_content_type(headers: &[HeaderEntry]) -> bool {
+fn has_content_type(headers: &[HeaderEntry], prefix: &str) -> bool {
     headers.iter().any(|h| {
-        h.name.trim().eq_ignore_ascii_case("content-type")
-            && h.value.trim().to_ascii_lowercase().starts_with("application/x-www-form-urlencoded")
+        h.name.trim().eq_ignore_ascii_case("content-type") && h.value.trim().to_ascii_lowercase().starts_with(prefix)
     })
 }
 use reqwest::{header::{HeaderName, HeaderValue}, Client, Method};
@@ -127,8 +126,12 @@ fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPa
         })
         .collect();
     // Variable values in a form body must not break out of their field.
-    let encode_body = is_form_content_type(&headers);
-    let body = req.body.as_deref().map(|b| apply(b, encode_body));
+    let encode_body = has_content_type(&headers, "application/x-www-form-urlencoded");
+    let mut body = req.body.as_deref().map(|b| apply(b, encode_body));
+    // Request files keep plain line feeds; multipart on the wire requires CRLF.
+    if has_content_type(&headers, "multipart/") {
+        body = body.map(|b| b.replace("\r\n", "\n").replace('\n', "\r\n"));
+    }
     let resolved = RequestPayload { method: req.method, url, headers, body };
     if missing.is_empty() {
         return Ok(resolved);
@@ -221,6 +224,19 @@ mod tests {
         assert_eq!(encode_basic_auth("Basic ab:c"), "Basic YWI6Yw==");
         assert_eq!(encode_basic_auth("Basic dXNlcjpwYXNz"), "Basic dXNlcjpwYXNz");
         assert_eq!(encode_basic_auth("Bearer a:b"), "Bearer a:b");
+    }
+
+    #[test]
+    fn multipart_bodies_are_sent_with_crlf() {
+        let req = RequestPayload {
+            method: "POST".into(),
+            url: "x".into(),
+            headers: vec![HeaderEntry { name: "content-type".into(), value: "multipart/form-data; boundary=b".into() }],
+            body: Some("--b\nContent-Disposition: form-data; name=\"a\"\n\n{{v}}\n--b--\n".into()),
+        };
+        let vars = vec![HeaderEntry { name: "v".into(), value: "x y".into() }];
+        let body = resolve(req, vars).unwrap().body.unwrap();
+        assert_eq!(body, "--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\nx y\r\n--b--\r\n");
     }
 
     #[test]

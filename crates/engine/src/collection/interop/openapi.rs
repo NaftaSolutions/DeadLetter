@@ -6,7 +6,7 @@ use serde_json::{Map, Value};
 use crate::collection::environment::EnvVariable;
 use crate::collection::model::RequestFile;
 
-use super::util::{append_query, basic, bearer, default_header, form_body, header, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE};
+use super::util::{append_query, basic, bearer, default_header, form_body, header, set_multipart, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE};
 use super::{ImportResult, ImportedRequest};
 
 type Res<T> = Result<T, String>;
@@ -225,10 +225,34 @@ fn operation(root: &Value, path: &str, method: &str, op: &Value, common: &[Value
     if let Some(rb) = op.get("requestBody").map(|b| deref(root, b)) {
         let content = rb.get("content").and_then(Value::as_object);
         let pick = content.and_then(|c| {
-            c.iter().find(|(k, _)| k.contains("json")).or_else(|| c.iter().find(|(k, _)| k.as_str() == FORM_CONTENT_TYPE))
+            c.iter()
+                .find(|(k, _)| k.contains("json"))
+                .or_else(|| c.iter().find(|(k, _)| k.as_str() == FORM_CONTENT_TYPE))
+                .or_else(|| c.iter().find(|(k, _)| k.as_str() == "multipart/form-data"))
         });
         if let Some((mime, media)) = pick {
-            if mime.as_str() == FORM_CONTENT_TYPE {
+            if mime.as_str() == "multipart/form-data" {
+                // Text fields only: binary (file) properties cannot be represented.
+                let schema = media.get("schema").map(|sch| deref(root, sch));
+                let fields: Vec<(String, String)> = schema
+                    .and_then(|sch| sch.get("properties"))
+                    .and_then(Value::as_object)
+                    .map(|props| {
+                        props
+                            .iter()
+                            .filter(|(_, p)| {
+                                let p = deref(root, p);
+                                p.get("format").and_then(Value::as_str) != Some("binary")
+                                    && p.pointer("/items/format").and_then(Value::as_str) != Some("binary")
+                            })
+                            .map(|(k, p)| {
+                                (k.clone(), match sample(root, p, 1) { Value::String(t) => t, Value::Null => String::new(), other => other.to_string() })
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                set_multipart(&mut req, &fields);
+            } else if mime.as_str() == FORM_CONTENT_TYPE {
                 let schema = media.get("schema").map(|sch| sample(root, sch, 0)).unwrap_or(Value::Null);
                 if let Value::Object(o) = schema {
                     let fields: Vec<(String, String)> = o
@@ -369,6 +393,21 @@ mod tests {
         assert_eq!(login.request.name, "POST /login");
         assert_eq!(login.request.body.as_deref(), Some("user=a%20b"));
         assert!(login.request.headers.iter().all(|h| h.name != "Authorization"), "security: [] disables auth");
+    }
+
+    #[test]
+    fn multipart_specs_keep_text_fields_and_drop_files() {
+        let r = import(
+            &serde_json::from_str(
+                r#"{ "openapi": "3.0.0", "info": { "title": "U" }, "paths": { "/up": { "post": { "requestBody": { "content": { "multipart/form-data": {
+                  "schema": { "type": "object", "properties": { "title": { "type": "string", "example": "cat" }, "file": { "type": "string", "format": "binary" } } } } } } } } } }"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let req = &r.requests[0].request;
+        let fields = crate::collection::interop::util::multipart_fields(req).unwrap();
+        assert_eq!(fields, vec![("title".to_string(), "cat".to_string())]);
     }
 
     #[test]

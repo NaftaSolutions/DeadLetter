@@ -31,7 +31,7 @@ The arrows button in the header opens Import & export:
 - **From a cURL command:** paste one, including browsers' *Copy as cURL* output (bash or cmd).
 - **Export:** the whole workspace as a Postman v2.1 collection, or a single request via **Copy cURL** above the request (variables of the active environment are filled in).
 
-Not supported yet: multipart/form-data and `curl -d @file`.
+Not supported yet: file uploads (`-F name=@file`, form-data files) and `curl -d @file`.
 
 ## Auth and body types
 
@@ -39,6 +39,7 @@ The Auth and Body tabs are editors over plain request data, so files stay portab
 
 - **Bearer / Basic** write the `Authorization` header (`Bearer {{token}}`, `Basic user:pass`). Basic credentials are base64-encoded when the request is sent, the same convention as the VS Code REST Client and JetBrains HTTP Client. Use `{{variables}}` so real credentials stay out of git. API keys are just a header or a query parameter.
 - **Form (urlencoded)** writes `Content-Type: application/x-www-form-urlencoded` and a `a=1&b=2` body; `{{variable}}` values are percent-encoded on send.
+- **Form-data** writes `Content-Type: multipart/form-data; boundary=...` and the usual boundary-delimited body (text fields; file uploads are not supported yet). Files keep plain line feeds; the engine sends CRLF on the wire.
 - **GraphQL** writes `Content-Type: application/json` and the standard `{ "query", "variables" }` envelope. A file in that shape reopens in GraphQL mode.
 
 ## Response viewer

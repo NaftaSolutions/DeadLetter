@@ -4,12 +4,18 @@ import { newRow, type KeyValue } from '../request'
 import {
   FORM_CONTENT_TYPE,
   JSON_CONTENT_TYPE,
+  MULTIPART_BOUNDARY,
+  MULTIPART_CONTENT_TYPE,
+  boundaryOf,
   detectBodyMode,
   parseGraphql,
+  parseMultipart,
   parseUrlencoded,
   serializeGraphql,
+  serializeMultipart,
   serializeUrlencoded,
-  type BodyMode
+  type BodyMode,
+  type Field
 } from '../requestBody'
 import { KeyValueEditor } from './KeyValueEditor'
 
@@ -22,6 +28,7 @@ interface Props {
 const MODES: { id: BodyMode; label: string }[] = [
   { id: 'raw', label: 'Raw' },
   { id: 'urlencoded', label: 'Form (urlencoded)' },
+  { id: 'multipart', label: 'Form-data' },
   { id: 'graphql', label: 'GraphQL' }
 ]
 
@@ -43,6 +50,27 @@ function FormFields({ body, onBody }: { body: string; onBody: (b: string) => voi
         onBody(serializeUrlencoded(next))
       }}
     />
+  )
+}
+
+function MultipartFields({ body, boundary, onBody }: { body: string; boundary: string; onBody: (b: string) => void }) {
+  const [rows, setRows] = useState<KeyValue[]>(() => [
+    ...(parseMultipart(body, boundary) ?? []).map((f) => ({ ...newRow(), ...f })),
+    newRow()
+  ])
+  return (
+    <div>
+      <KeyValueEditor
+        rows={rows}
+        noun="field"
+        toggleable={false}
+        onChange={(next) => {
+          setRows(next)
+          onBody(serializeMultipart(next, boundary))
+        }}
+      />
+      <p className="px-3 py-2 text-[11px] text-zinc-600">Text fields only. File uploads are not supported yet.</p>
+    </div>
   )
 }
 
@@ -91,14 +119,24 @@ function Graphql({ body, onBody }: { body: string; onBody: (b: string) => void }
 
 export function BodyEditor({ headers, body, onChange }: Props) {
   const [mode, setMode] = useState<BodyMode>(() => detectBodyMode(headers, body))
+  const boundary = boundaryOf(headers.find((h) => h.enabled && h.name.toLowerCase() === 'content-type')?.value ?? '') ?? MULTIPART_BOUNDARY
 
   const switchMode = (next: BodyMode) => {
     if (next === mode) return
     setMode(next)
+    // Fields that can be carried over to a form mode; structured text (JSON, XML, multipart) is not form data.
+    const carried = (): Field[] => {
+      if (mode === 'multipart') return parseMultipart(body, boundary) ?? []
+      if (mode === 'urlencoded') return parseUrlencoded(body)
+      return /^\s*([{[<]|--)/.test(body) ? [] : parseUrlencoded(body)
+    }
     if (next === 'urlencoded') {
-      // Carry over an existing form-looking body; anything else would be nonsense as fields.
-      const keep = /^\s*[{[<]/.test(body) ? '' : serializeUrlencoded(parseUrlencoded(body))
-      onChange({ body: keep, headers: upsertHeader(headers, 'Content-Type', FORM_CONTENT_TYPE) })
+      onChange({ body: serializeUrlencoded(carried()), headers: upsertHeader(headers, 'Content-Type', FORM_CONTENT_TYPE) })
+    } else if (next === 'multipart') {
+      onChange({
+        body: serializeMultipart(carried(), MULTIPART_BOUNDARY),
+        headers: upsertHeader(headers, 'Content-Type', MULTIPART_CONTENT_TYPE)
+      })
     } else if (next === 'graphql') {
       const parsed = parseGraphql(body)
       const out = serializeGraphql(parsed ?? { query: '', variables: '' })
@@ -138,6 +176,7 @@ export function BodyEditor({ headers, body, onChange }: Props) {
           />
         )}
         {mode === 'urlencoded' && <FormFields body={body} onBody={(b) => onChange({ body: b })} />}
+        {mode === 'multipart' && <MultipartFields body={body} boundary={boundary} onBody={(b) => onChange({ body: b })} />}
         {mode === 'graphql' && <Graphql body={body} onBody={(b) => onChange({ body: b })} />}
       </div>
     </div>

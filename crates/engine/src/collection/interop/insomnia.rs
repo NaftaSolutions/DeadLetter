@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::collection::environment::{EnvVariable, Environment};
 use crate::collection::model::{RequestFile, RequestHeader};
 
-use super::util::{append_query, basic, bearer, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE};
+use super::util::{append_query, basic, bearer, default_header, form_body, header, name_from_url, set_multipart, FORM_CONTENT_TYPE};
 use super::{ImportResult, ImportedRequest};
 
 type Res<T> = Result<T, String>;
@@ -96,7 +96,19 @@ fn request_of(r: &Value, warnings: &mut Vec<String>) -> RequestFile {
         req.body = Some(convert_vars(&s(&body["text"]))).filter(|t| !t.is_empty());
         default_header(&mut req, "Content-Type", "application/json");
     } else if mime.starts_with("multipart/") {
-        warnings.push(format!("\"{}\": multipart bodies are not supported; the body was left empty", req.name));
+        let params: Vec<&Value> = body["params"].as_array().map(|a| a.iter().filter(|p| enabled(p)).collect()).unwrap_or_default();
+        let files = params.iter().filter(|p| s(&p["type"]) == "file").count();
+        let fields: Vec<(String, String)> = params
+            .iter()
+            .filter(|p| s(&p["type"]) != "file" && !s(&p["name"]).is_empty())
+            .map(|p| (convert_vars(&s(&p["name"])), convert_vars(&s(&p["value"]))))
+            .collect();
+        if files > 0 {
+            warnings.push(format!("\"{}\": {files} file field(s) were skipped (file uploads are not supported)", req.name));
+        }
+        if !fields.is_empty() {
+            set_multipart(&mut req, &fields);
+        }
     } else if let Some(text) = body.get("text").and_then(Value::as_str).filter(|t| !t.is_empty()) {
         req.body = Some(convert_vars(text));
         if !mime.is_empty() {

@@ -6,7 +6,7 @@ use crate::http::{encode_basic_auth, with_scheme};
 use crate::vars::{percent_encode, substitute};
 
 use super::shell::tokenize;
-use super::util::{basic, content_type, default_header, header, name_from_url, FORM_CONTENT_TYPE};
+use super::util::{basic, multipart_body, multipart_fields, MULTIPART_CONTENT_TYPE, content_type, default_header, header, name_from_url, FORM_CONTENT_TYPE};
 
 type Res<T> = Result<T, String>;
 
@@ -60,6 +60,8 @@ struct Parsed {
     url: Option<String>,
     headers: Vec<RequestHeader>,
     data: Vec<String>,
+    /// `-F name=value` text fields.
+    fields: Vec<(String, String)>,
     user: Option<String>,
     cookie: Option<String>,
     head: bool,
@@ -108,7 +110,13 @@ fn apply_option(p: &mut Parsed, opt: &str, value: String) -> Res<()> {
         }
         "url" => p.url = Some(value),
         "form" | "form-string" => {
-            return Err("multipart/form-data (-F) is not supported yet".into());
+            let (name, content) = value.split_once('=').ok_or("A -F field needs the form name=value")?;
+            if opt == "form" && (content.starts_with('@') || content.starts_with('<')) {
+                return Err("File uploads (-F name=@file) are not supported".into());
+            }
+            // `;type=...` / `;filename=...` modifiers only matter for files.
+            let content = if opt == "form" { content.split(";type=").next().unwrap_or(content) } else { content };
+            p.fields.push((name.to_string(), content.to_string()));
         }
         "upload-file" => return Err("File uploads (-T) are not supported".into()),
         _ => {}
@@ -193,7 +201,11 @@ pub fn parse(command: &str) -> Res<RequestFile> {
         headers: p.headers,
         body: None,
     };
-    let body = (!p.data.is_empty()).then(|| p.data.join("&"));
+    let body = if !p.fields.is_empty() {
+        Some(multipart_body(&p.fields))
+    } else {
+        (!p.data.is_empty()).then(|| p.data.join("&"))
+    };
 
     if p.get {
         // `-G` turns the data into a query string (it is already encoded).
@@ -223,6 +235,8 @@ pub fn parse(command: &str) -> Res<RequestFile> {
     if p.json {
         default_header(&mut req, "Content-Type", "application/json");
         default_header(&mut req, "Accept", "application/json");
+    } else if !p.fields.is_empty() {
+        default_header(&mut req, "Content-Type", MULTIPART_CONTENT_TYPE);
     } else if req.body.is_some() {
         // curl's own default for -d.
         default_header(&mut req, "Content-Type", FORM_CONTENT_TYPE);
@@ -252,12 +266,21 @@ pub fn to_curl(req: &RequestFile, variables: &std::collections::HashMap<String, 
         m => parts.push(format!("-X {m}")),
     }
     parts.push(quote(&url));
+    // Multipart text fields are exported as -F so curl builds the boundaries itself.
+    let multipart_fields = multipart_fields(req);
     for h in req.headers.iter().filter(|h| h.enabled && !h.name.trim().is_empty()) {
+        if multipart_fields.is_some() && h.name.trim().eq_ignore_ascii_case("content-type") {
+            continue;
+        }
         let value = sub(&h.value);
         let value = if h.name.trim().eq_ignore_ascii_case("authorization") { encode_basic_auth(&value) } else { value };
         parts.push(format!("-H {}", quote(&format!("{}: {}", sub(h.name.trim()), value.trim()))));
     }
-    if let Some(body) = req.body.as_deref().filter(|b| !b.is_empty()) {
+    if let Some(fields) = &multipart_fields {
+        for (k, v) in fields {
+            parts.push(format!("--form-string {}", quote(&format!("{}={}", sub(k), sub(v)))));
+        }
+    } else if let Some(body) = req.body.as_deref().filter(|b| !b.is_empty()) {
         let form = content_type(req).is_some_and(|t| t.starts_with(FORM_CONTENT_TYPE));
         let text = if form { substitute(body, variables, true).0 } else { sub(body) };
         parts.push(format!("--data-raw {}", quote(&text)));
@@ -328,11 +351,24 @@ mod tests {
 
     #[test]
     fn rejects_what_it_cannot_represent() {
-        assert!(parse("curl -F a=b https://x.test").unwrap_err().contains("multipart"));
+        assert!(parse("curl -F a=@x.png https://x.test").unwrap_err().contains("File uploads"));
         assert!(parse("curl -d @body.json https://x.test").unwrap_err().contains("file"));
         assert!(parse("wget https://x.test").is_err());
         assert!(parse("curl -X POST").is_err());
         assert!(parse("curl 'https://x.test").is_err());
+    }
+
+    #[test]
+    fn form_fields_become_multipart_and_export_back_as_form_strings() {
+        let req = parse("curl https://x.test/up -F a=1 -F 'note=hi there;type=text/plain' --form-string 'raw=@not-a-file'").unwrap();
+        assert_eq!(req.method, "POST");
+        assert_eq!(req.headers[0].value, MULTIPART_CONTENT_TYPE);
+        let fields = multipart_fields(&req).unwrap();
+        assert_eq!(fields, vec![("a".into(), "1".into()), ("note".into(), "hi there".into()), ("raw".into(), "@not-a-file".into())]);
+
+        let out = to_curl(&req, &HashMap::new());
+        assert!(out.contains("--form-string 'a=1'") && out.contains("--form-string 'raw=@not-a-file'"), "{out}");
+        assert!(!out.contains("Content-Type") && !out.contains("--data-raw"), "{out}");
     }
 
     #[test]

@@ -6,6 +6,9 @@ use crate::vars::percent_encode;
 
 pub const FORM_CONTENT_TYPE: &str = "application/x-www-form-urlencoded";
 pub const JSON_CONTENT_TYPE: &str = "application/json";
+pub const MULTIPART_BOUNDARY: &str = "----DeadLetterFormBoundary";
+/// `Content-Type` value written for text-field multipart bodies.
+pub const MULTIPART_CONTENT_TYPE: &str = "multipart/form-data; boundary=----DeadLetterFormBoundary";
 
 pub fn header(name: &str, value: &str) -> RequestHeader {
     RequestHeader { name: name.to_string(), value: value.to_string(), enabled: true }
@@ -27,6 +30,33 @@ pub fn default_header(req: &mut RequestFile, name: &str, value: &str) {
     if !has_header(req, name) {
         req.headers.push(header(name, value));
     }
+}
+
+/// The text fields of a multipart/form-data request, or `None` if it is not one (or holds files).
+pub fn multipart_fields(req: &RequestFile) -> Option<Vec<(String, String)>> {
+    let ct = req.headers.iter().find(|h| h.enabled && h.name.trim().eq_ignore_ascii_case("content-type"))?;
+    if !ct.value.trim().to_ascii_lowercase().starts_with("multipart/form-data") {
+        return None;
+    }
+    parse_multipart(req.body.as_deref()?, &boundary_of(&ct.value)?)
+}
+
+/// Sets (or replaces) a header value, keeping its position.
+pub fn set_header(req: &mut RequestFile, name: &str, value: &str) {
+    match req.headers.iter_mut().find(|h| h.name.trim().eq_ignore_ascii_case(name)) {
+        Some(h) => {
+            h.value = value.to_string();
+            h.enabled = true;
+        }
+        None => req.headers.push(header(name, value)),
+    }
+}
+
+/// Makes the request a text-field multipart/form-data post. An existing `Content-Type` is
+/// replaced because it cannot carry our boundary.
+pub fn set_multipart(req: &mut RequestFile, fields: &[(String, String)]) {
+    req.body = Some(multipart_body(fields));
+    set_header(req, "Content-Type", MULTIPART_CONTENT_TYPE);
 }
 
 /// Percent-encodes a form field but leaves `{{variable}}` placeholders readable.
@@ -72,6 +102,51 @@ pub fn form_body(fields: &[(String, String)]) -> String {
         .map(|(k, v)| format!("{}={}", encode_field(k), encode_field(v)))
         .collect::<Vec<_>>()
         .join("&")
+}
+
+/// A multipart/form-data body of text fields, laid out the way .http clients write them
+/// (plain line feeds; the engine converts them to CRLF when sending).
+pub fn multipart_body(fields: &[(String, String)]) -> String {
+    let mut out = String::new();
+    for (name, value) in fields.iter().filter(|(k, _)| !k.trim().is_empty()) {
+        out.push_str(&format!(
+            "--{MULTIPART_BOUNDARY}\nContent-Disposition: form-data; name=\"{}\"\n\n{value}\n",
+            name.replace('"', "%22")
+        ));
+    }
+    out.push_str(&format!("--{MULTIPART_BOUNDARY}--\n"));
+    out
+}
+
+/// The boundary of a `Content-Type: multipart/...; boundary=...` value.
+pub fn boundary_of(content_type: &str) -> Option<String> {
+    let rest = content_type.split(';').skip(1).find_map(|p| p.trim().strip_prefix("boundary="))?;
+    let b = rest.trim().trim_matches('"');
+    (!b.is_empty()).then(|| b.to_string())
+}
+
+/// Reads text fields back out of a multipart body. `None` if any part is a file or the
+/// body is not shaped like one, so callers fall back to treating it as opaque text.
+pub fn parse_multipart(body: &str, boundary: &str) -> Option<Vec<(String, String)>> {
+    let text = body.replace("\r\n", "\n");
+    let delimiter = format!("--{boundary}");
+    let mut fields = Vec::new();
+    let mut closed = false;
+    for chunk in text.split(&delimiter).skip(1) {
+        if chunk.starts_with("--") {
+            closed = true;
+            break;
+        }
+        let chunk = chunk.strip_prefix('\n')?;
+        let (head, value) = chunk.split_once("\n\n")?;
+        let disposition = head.lines().find(|l| l.to_ascii_lowercase().starts_with("content-disposition:"))?;
+        if disposition.contains("filename=") {
+            return None;
+        }
+        let name = disposition.split("name=\"").nth(1)?.split('"').next()?;
+        fields.push((name.replace("%22", "\""), value.strip_suffix('\n').unwrap_or(value).to_string()));
+    }
+    closed.then_some(fields)
 }
 
 /// Appends `name=value` query pairs to a URL, respecting an existing `?` and `#fragment`.
@@ -138,6 +213,20 @@ mod tests {
             assert_eq!(decoded, plain.replace('+', "+"));
         }
         assert_eq!(decode_field("a+b%2"), "a b%2");
+    }
+
+    #[test]
+    fn multipart_round_trips_text_fields() {
+        let fields = vec![("a".to_string(), "1".to_string()), ("note".to_string(), "line1\nline2 {{x}}".to_string())];
+        let body = multipart_body(&fields);
+        assert_eq!(boundary_of(MULTIPART_CONTENT_TYPE).as_deref(), Some(MULTIPART_BOUNDARY));
+        assert_eq!(parse_multipart(&body, MULTIPART_BOUNDARY), Some(fields));
+        assert_eq!(parse_multipart(&body.replace('\n', "\r\n"), MULTIPART_BOUNDARY).map(|f| f.len()), Some(2));
+        // Files and malformed bodies are left alone.
+        let file = "--b\nContent-Disposition: form-data; name=\"f\"; filename=\"x.png\"\n\nBIN\n--b--\n";
+        assert_eq!(parse_multipart(file, "b"), None);
+        assert_eq!(parse_multipart("nope", "b"), None);
+        assert_eq!(parse_multipart("--b\nContent-Disposition: form-data; name=\"a\"\n\n1\n", "b"), None, "unterminated");
     }
 
     #[test]

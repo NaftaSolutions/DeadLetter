@@ -4,9 +4,12 @@ import { applyAuth, detectAuth } from './auth.ts'
 import { removeHeader, upsertHeader } from './headers.ts'
 import {
   detectBodyMode,
+  boundaryOf,
   parseGraphql,
+  parseMultipart,
   parseUrlencoded,
   serializeGraphql,
+  serializeMultipart,
   serializeUrlencoded
 } from './requestBody.ts'
 import { newRow, type KeyValue } from './request.ts'
@@ -78,6 +81,24 @@ test('graphql: envelope detection and serialization', () => {
   assert.equal(serializeGraphql({ query: 'q', variables: '[1]' }).ok, false)
 })
 
+test('multipart: text fields round-trip, files and malformed bodies stay raw', () => {
+  const fields = [
+    { name: 'a', value: '1' },
+    { name: 'note', value: 'line1\nline2 {{x}}' },
+    { name: 'q"uote', value: '' }
+  ]
+  const body = serializeMultipart(fields)
+  assert.equal(boundaryOf('multipart/form-data; boundary="xyz"; charset=utf-8'), 'xyz')
+  assert.equal(boundaryOf('multipart/form-data'), null)
+  assert.deepEqual(parseMultipart(body, '----DeadLetterFormBoundary'), fields)
+  assert.equal(parseMultipart(body.replace(/\n/g, '\r\n'), '----DeadLetterFormBoundary')?.length, 3)
+  const file = '--b\nContent-Disposition: form-data; name="f"; filename="x.png"\n\nBIN\n--b--\n'
+  assert.equal(parseMultipart(file, 'b'), null)
+  assert.equal(parseMultipart('--b\nContent-Disposition: form-data; name="a"\n\n1\n', 'b'), null)
+  assert.equal(parseMultipart('nope', 'b'), null)
+  assert.equal(serializeMultipart([]), '------DeadLetterFormBoundary--\n')
+})
+
 test('body mode is derived from Content-Type and body shape', () => {
   assert.equal(detectBodyMode([row('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8')], ''), 'urlencoded')
   assert.equal(detectBodyMode([row('Content-Type', 'application/json')], '{"query":"{ a }"}'), 'graphql')
@@ -85,4 +106,8 @@ test('body mode is derived from Content-Type and body shape', () => {
   assert.equal(detectBodyMode([row('Content-Type', 'application/json')], '{"a":1}'), 'raw')
   assert.equal(detectBodyMode([row('Content-Type', 'text/plain')], '{"query":"x"}'), 'raw')
   assert.equal(detectBodyMode([newRow()], ''), 'raw')
+  const mp = row('Content-Type', 'multipart/form-data; boundary=----DeadLetterFormBoundary')
+  assert.equal(detectBodyMode([mp], serializeMultipart([{ name: 'a', value: '1' }])), 'multipart')
+  assert.equal(detectBodyMode([mp], ''), 'multipart')
+  assert.equal(detectBodyMode([mp], '--other\nwhatever'), 'raw')
 })

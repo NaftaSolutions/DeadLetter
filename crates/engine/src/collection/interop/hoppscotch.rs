@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::collection::model::{RequestFile, RequestHeader};
 
-use super::util::{append_query, basic, bearer, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE};
+use super::util::{append_query, basic, bearer, default_header, form_body, header, name_from_url, set_multipart, FORM_CONTENT_TYPE};
 use super::{ImportResult, ImportedRequest};
 
 type Res<T> = Result<T, String>;
@@ -101,8 +101,20 @@ fn request_of(r: &Value, inherited: &Value, warnings: &mut Vec<String>) -> Reque
             req.body = Some(vars(text));
             default_header(&mut req, "Content-Type", c);
         }
-        (c, _) if c.starts_with("multipart/") => {
-            warnings.push(format!("\"{}\": multipart bodies are not supported; the body was left empty", req.name));
+        (c, Value::Array(items)) if c.starts_with("multipart/") => {
+            let live: Vec<&Value> = items.iter().filter(|f| active(f)).collect();
+            let files = live.iter().filter(|f| f.get("isFile").and_then(Value::as_bool).unwrap_or(false)).count();
+            let fields: Vec<(String, String)> = live
+                .iter()
+                .filter(|f| !f.get("isFile").and_then(Value::as_bool).unwrap_or(false) && !s(&f["key"]).is_empty())
+                .map(|f| (vars(&s(&f["key"])), vars(&s(&f["value"]))))
+                .collect();
+            if files > 0 {
+                warnings.push(format!("\"{}\": {files} file field(s) were skipped (file uploads are not supported)", req.name));
+            }
+            if !fields.is_empty() {
+                set_multipart(&mut req, &fields);
+            }
         }
         _ => {}
     }
@@ -156,7 +168,7 @@ mod tests {
                 { "name": "Login", "method": "POST", "endpoint": "<<base>>/login", "auth": { "authType": "basic", "authActive": true, "username": "ada", "password": "pw" },
                   "body": { "contentType": "application/x-www-form-urlencoded", "body": "q: a b\n#off: 1" } },
                 { "name": "Raw", "method": "POST", "endpoint": "http://x", "auth": { "authType": "none" }, "body": { "contentType": "application/json", "body": "{\"a\":\"<<v>>\"}" } },
-                { "name": "Up", "method": "POST", "endpoint": "http://x/up", "body": { "contentType": "multipart/form-data", "body": [] } } ] }"#,
+                { "name": "Up", "method": "POST", "endpoint": "http://x/up", "body": { "contentType": "multipart/form-data", "body": [{ "key": "a", "value": "1", "active": true }, { "key": "f", "value": "", "active": true, "isFile": true }] } } ] }"#,
         )
         .unwrap();
         assert!(detect(&v));
@@ -174,6 +186,11 @@ mod tests {
         let raw = r.requests.iter().find(|x| x.request.name == "Raw").unwrap();
         assert_eq!(raw.request.body.as_deref(), Some("{\"a\":\"{{v}}\"}"));
         assert!(raw.request.headers.iter().all(|h| h.name != "Authorization"));
-        assert!(r.warnings.iter().any(|w| w.contains("multipart")));
+        let up = r.requests.iter().find(|x| x.request.name == "Up").unwrap();
+        assert!(up.request.body.as_deref().unwrap().contains("name=\"a\"
+
+1
+"));
+        assert!(r.warnings.iter().any(|w| w.contains("file field")));
     }
 }

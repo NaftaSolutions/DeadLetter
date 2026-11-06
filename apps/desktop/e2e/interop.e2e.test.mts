@@ -20,7 +20,7 @@ const POSTMAN = JSON.stringify({
         }
       ]
     },
-    { name: 'Upload', request: { method: 'POST', url: '{{baseUrl}}/up', body: { mode: 'formdata', formdata: [] } } }
+    { name: 'Upload', request: { method: 'POST', url: '{{baseUrl}}/up', body: { mode: 'formdata', formdata: [{ key: 'a', value: '1', type: 'text' }, { key: 'f', type: 'file', src: 'x.png' }] } } }
   ]
 })
 
@@ -55,7 +55,7 @@ test('import a cURL command, import a Postman file, copy as cURL and export', as
     await page.getByRole('button', { name: 'Choose file…' }).click()
     await dialog.getByText(/Imported 2 requests from Postman into/).waitFor({ timeout: 8000 })
     await dialog.getByText(/scripts, which are not imported/).waitFor()
-    await dialog.getByText(/form-data bodies are not supported/).waitFor()
+    await dialog.getByText(/file field\(s\) were skipped/).waitFor()
     await shot('13-import-result')
     assert.ok(existsSync(join(ws, 'Shop', 'Users', 'List.http')))
     assert.match(read(join(ws, 'Shop', 'Users', 'List.http')), /Authorization: Bearer abc\n/)
@@ -97,7 +97,7 @@ test('import errors are explained and cancelling changes nothing', async () => {
 
     await page.getByLabel('cURL command').fill('curl -F file=@x.png https://x.test')
     await page.getByRole('button', { name: 'Import request' }).click()
-    await dialog.getByRole('alert').getByText(/multipart/).waitFor()
+    await dialog.getByRole('alert').getByText(/File uploads/).waitFor()
 
     const file = join(dirname(ws), 'spec.yaml')
     writeFileSync(file, 'openapi: 3.0.0\ninfo:\n  title: x\n')
