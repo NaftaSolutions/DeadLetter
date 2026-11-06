@@ -51,7 +51,7 @@ fn resolve_entry(root: &Path, rel: &str) -> Res<PathBuf> {
     resolve(root, rel)
 }
 
-fn rel_string(root: &Path, path: &Path) -> String {
+pub(super) fn rel_string(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .components()
@@ -78,7 +78,7 @@ pub fn slug(name: &str) -> String {
 }
 
 /// Folder names keep spaces but lose characters that are illegal on common filesystems.
-fn folder_name(name: &str) -> Res<String> {
+pub(super) fn folder_name(name: &str) -> Res<String> {
     let cleaned: String = name
         .chars()
         .filter(|c| !c.is_control() && !"<>:\"/\\|?*".contains(*c))
@@ -90,7 +90,7 @@ fn folder_name(name: &str) -> Res<String> {
     Ok(cleaned)
 }
 
-fn unique_path(dir: &Path, stem: &str, ext: Option<&str>) -> PathBuf {
+pub(super) fn unique_path(dir: &Path, stem: &str, ext: Option<&str>) -> PathBuf {
     let file = |s: &str| match ext {
         Some(e) => format!("{s}.{e}"),
         None => s.to_string(),
@@ -104,7 +104,7 @@ fn unique_path(dir: &Path, stem: &str, ext: Option<&str>) -> PathBuf {
     candidate
 }
 
-fn read_file(path: &Path) -> Res<RequestFile> {
+pub(super) fn read_file(path: &Path) -> Res<RequestFile> {
     let format = Format::from_path(path).ok_or("Unsupported file type (expected .json or .http)")?;
     let text = fs::read_to_string(path).map_err(|e| format!("Cannot read file: {e}"))?;
     let mut req = format.parse(&text)?;
@@ -125,7 +125,7 @@ pub(super) fn write_atomic(path: &Path, contents: &str) -> Res<()> {
     })
 }
 
-fn write_file(path: &Path, req: &RequestFile) -> Res<()> {
+pub(super) fn write_file(path: &Path, req: &RequestFile) -> Res<()> {
     let format = Format::from_path(path).ok_or("Unsupported file type (expected .json or .http)")?;
     write_atomic(path, &format.serialize(req))
 }

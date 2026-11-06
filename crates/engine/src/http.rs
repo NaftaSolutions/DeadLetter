@@ -25,7 +25,7 @@ fn base64(bytes: &[u8]) -> String {
 
 /// `Authorization: Basic user:pass` (or `user pass`) is encoded to base64 at send time, the way
 /// the VS Code REST Client and JetBrains HTTP Client do; an already-encoded value is untouched.
-fn encode_basic_auth(value: &str) -> String {
+pub(crate) fn encode_basic_auth(value: &str) -> String {
     let Some(rest) = value.trim().strip_prefix("Basic ").map(str::trim) else { return value.to_string() };
     if !rest.contains(':') && !rest.contains(char::is_whitespace) {
         return value.to_string();
@@ -89,7 +89,7 @@ fn invalid(msg: String) -> Error {
 }
 
 /// A bare host such as `localhost:3000/api` (typed or produced by a variable) gets `http://`.
-fn with_scheme(url: String) -> String {
+pub(crate) fn with_scheme(url: String) -> String {
     let url = url.trim().to_string();
     let has_scheme = url.split_once("://").is_some_and(|(scheme, _)| {
         !scheme.is_empty() && scheme.chars().all(|c| c.is_ascii_alphanumeric() || "+.-".contains(c))

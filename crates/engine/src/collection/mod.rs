@@ -3,9 +3,10 @@
 
 mod environment;
 mod http_format;
+mod interop;
 mod json_format;
 mod model;
-mod store;
+pub(super) mod store;
 mod watcher;
 
 
