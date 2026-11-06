@@ -52,10 +52,13 @@ export function toFile(d: RequestDraft): RequestFile {
 
 export const newRow = (): KeyValue => ({ id: crypto.randomUUID(), enabled: true, name: '', value: '' })
 
-/** Adds a scheme when the user typed a bare host, e.g. `localhost:3000/api`. */
+/**
+ * Adds a scheme when the user typed a bare host, e.g. `localhost:3000/api`.
+ * A leading `{{variable}}` may supply the scheme itself, so the engine decides after substitution.
+ */
 function normalizeUrl(raw: string): string {
   const url = raw.trim()
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `http://${url}`
+  return url.startsWith('{{') || /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `http://${url}`
 }
 
 export function toPayload(d: RequestDraft): RequestPayload {

@@ -41,7 +41,7 @@ async function chooseWorkspace(event: Electron.IpcMainInvokeEvent): Promise<Sett
   }
   const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
   if (result.canceled || !result.filePaths[0]) return getSettings()
-  const settings = updateSettings({ workspacePath: result.filePaths[0] })
+  const settings = updateSettings({ workspacePath: result.filePaths[0], activeEnvironment: null })
   startWatching()
   return settings
 }
@@ -50,8 +50,11 @@ export function registerCollectionIpc(): void {
   ipcMain.handle(IPC.settingsGet, () => getSettings())
   ipcMain.handle(IPC.settingsUpdate, (_e, patch: Partial<Settings>) => {
     // The workspace can only be changed through the native folder picker.
-    const { preferredFormat } = patch
-    return updateSettings(preferredFormat ? { preferredFormat } : {})
+    const { preferredFormat, activeEnvironment } = patch
+    return updateSettings({
+      ...(preferredFormat ? { preferredFormat } : {}),
+      ...(activeEnvironment !== undefined ? { activeEnvironment } : {})
+    })
   })
   ipcMain.handle(IPC.settingsChooseWorkspace, (e) => chooseWorkspace(e))
 

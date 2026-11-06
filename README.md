@@ -19,6 +19,10 @@ Requests live as plain files in a workspace folder you pick (Settings, or the si
 - `.http` (default), one request per file: `### name`, request line, headers, blank line, body. Disabled headers are written as `# Name: value` comments.
 - `.json`: `{ "name", "method", "url", "headers": [{ "name", "value", "enabled" }], "body" }`.
 
+## Environments
+
+Pick an environment in the header, then use `{{variable}}` in a request's URL, headers or body. Environments live in `.deadletter/environments/<name>.json` inside the workspace, so they travel with git. Variables marked secret keep their values in `<name>.secrets.json` next to it; a generated `.gitignore` there keeps that file out of commits. Sending a request that uses an undefined variable fails with a message naming it.
+
 ## Tests
 
 ```sh

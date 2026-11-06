@@ -1,6 +1,8 @@
-import type { RequestFile, RequestPayload, ResponsePayload, TreeNode } from '@deadletter/engine'
+import type { Environment, RequestFile, RequestPayload, ResponsePayload, TreeNode } from '@deadletter/engine'
 
 export type {
+  EnvVariable,
+  Environment,
   HeaderEntry,
   RequestFile,
   RequestHeader,
@@ -16,6 +18,8 @@ export interface Settings {
   workspacePath: string | null
   /** Format used for newly created requests. Existing files keep theirs. */
   preferredFormat: RequestFormat
+  /** Name of the environment whose variables are applied to requests, or null for none. */
+  activeEnvironment: string | null
 }
 
 /** Contract between preload (producer) and renderer (consumer). */
@@ -25,6 +29,10 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsChooseWorkspace: 'settings:chooseWorkspace',
+  environmentList: 'environment:list',
+  environmentRead: 'environment:read',
+  environmentWrite: 'environment:write',
+  environmentDelete: 'environment:delete',
   collectionList: 'collection:list',
   collectionRead: 'collection:read',
   collectionWrite: 'collection:write',
@@ -52,6 +60,15 @@ export interface DeadLetterApi {
     update(patch: Partial<Settings>): Promise<Settings>
     /** Opens a native folder picker; resolves with the (possibly unchanged) settings. */
     chooseWorkspace(): Promise<Settings>
+  }
+
+  /** Environments live in `.deadletter/environments/` of the workspace; secrets stay out of git. */
+  environments: {
+    list(): Promise<string[]>
+    /** Includes secret values (the editor needs them). */
+    read(name: string): Promise<Environment>
+    write(environment: Environment): Promise<void>
+    delete(name: string): Promise<void>
   }
 
   /** All paths are relative to the workspace and use `/`. The main process owns the root. */

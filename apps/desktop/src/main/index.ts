@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
+import { registerEnvironmentIpc } from './environments'
 import { guardClose, registerCloseGuardIpc } from './closeGuard'
 
 function createWindow(): void {
@@ -31,6 +32,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   registerEngineIpc()
   registerCollectionIpc()
+  registerEnvironmentIpc()
   registerCloseGuardIpc()
   createWindow()
   app.on('activate', () => {

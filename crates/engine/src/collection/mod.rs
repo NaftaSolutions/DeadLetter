@@ -1,6 +1,7 @@
 //! Collections: requests stored as human-readable `.json` / `.http` files in a
 //! user-chosen workspace folder.
 
+mod environment;
 mod http_format;
 mod json_format;
 mod model;
@@ -9,6 +10,7 @@ mod watcher;
 
 
 use napi::{Error, Result, Status};
+use environment::Environment;
 use model::{RequestFile, TreeNode};
 use napi_derive::napi;
 
@@ -53,4 +55,27 @@ pub fn rename_entry(root: String, path: String, new_name: String) -> Result<Stri
 #[napi]
 pub fn delete_entry(root: String, path: String) -> Result<()> {
     fail(store::delete_entry(&root, &path))
+}
+
+/// Names of the environments defined in the workspace.
+#[napi]
+pub fn list_environments(root: String) -> Result<Vec<String>> {
+    fail(environment::list(&root))
+}
+
+/// Reads an environment with its secret values merged in.
+#[napi]
+pub fn read_environment(root: String, name: String) -> Result<Environment> {
+    fail(environment::read(&root, &name))
+}
+
+/// Saves an environment; secret values go to a git-ignored sidecar file.
+#[napi]
+pub fn write_environment(root: String, environment: Environment) -> Result<()> {
+    fail(environment::write(&root, &environment))
+}
+
+#[napi]
+pub fn delete_environment(root: String, name: String) -> Result<()> {
+    fail(environment::delete(&root, &name))
 }

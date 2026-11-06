@@ -13,7 +13,7 @@ const RESERVED: [&str; 8] = ["con", "prn", "aux", "nul", "com1", "com2", "lpt1",
 
 type Res<T> = Result<T, String>;
 
-fn canonical_root(root: &str) -> Res<PathBuf> {
+pub(super) fn canonical_root(root: &str) -> Res<PathBuf> {
     fs::canonicalize(root).map_err(|e| format!("Workspace folder is not accessible: {e}"))
 }
 
@@ -115,15 +115,19 @@ fn read_file(path: &Path) -> Res<RequestFile> {
 }
 
 /// Write-then-rename so a crash or a watching tool never sees a half-written file.
-fn write_file(path: &Path, req: &RequestFile) -> Res<()> {
-    let format = Format::from_path(path).ok_or("Unsupported file type (expected .json or .http)")?;
+pub(super) fn write_atomic(path: &Path, contents: &str) -> Res<()> {
     let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let tmp = path.with_file_name(format!(".{file_name}.tmp"));
-    fs::write(&tmp, format.serialize(req)).map_err(|e| format!("Cannot write file: {e}"))?;
+    fs::write(&tmp, contents).map_err(|e| format!("Cannot write file: {e}"))?;
     fs::rename(&tmp, path).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         format!("Cannot write file: {e}")
     })
+}
+
+fn write_file(path: &Path, req: &RequestFile) -> Res<()> {
+    let format = Format::from_path(path).ok_or("Unsupported file type (expected .json or .http)")?;
+    write_atomic(path, &format.serialize(req))
 }
 
 pub fn list(root: &str) -> Res<Vec<TreeNode>> {

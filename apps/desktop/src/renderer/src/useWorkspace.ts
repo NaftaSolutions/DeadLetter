@@ -42,5 +42,5 @@ export function useWorkspace(onError: (e: unknown) => void) {
     [onError]
   )
 
-  return { settings, nodes, refresh, chooseWorkspace, setPreferredFormat }
+  return { settings, setSettings, nodes, refresh, chooseWorkspace, setPreferredFormat }
 }

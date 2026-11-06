@@ -10,6 +10,12 @@ const api: DeadLetterApi = {
     update: (patch) => ipcRenderer.invoke(IPC.settingsUpdate, patch),
     chooseWorkspace: () => ipcRenderer.invoke(IPC.settingsChooseWorkspace)
   },
+  environments: {
+    list: () => ipcRenderer.invoke(IPC.environmentList),
+    read: (name) => ipcRenderer.invoke(IPC.environmentRead, name),
+    write: (environment) => ipcRenderer.invoke(IPC.environmentWrite, environment),
+    delete: (name) => ipcRenderer.invoke(IPC.environmentDelete, name)
+  },
   collection: {
     list: () => ipcRenderer.invoke(IPC.collectionList),
     read: (path) => ipcRenderer.invoke(IPC.collectionRead, path),

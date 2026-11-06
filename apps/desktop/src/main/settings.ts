@@ -3,7 +3,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { RequestFormat, Settings } from '../shared/api'
 
-const DEFAULTS: Settings = { workspacePath: null, preferredFormat: 'http' }
+const DEFAULTS: Settings = { workspacePath: null, preferredFormat: 'http', activeEnvironment: null }
 
 const file = (): string => join(app.getPath('userData'), 'settings.json')
 
@@ -13,7 +13,9 @@ function sanitize(raw: unknown): Settings {
     r.preferredFormat === 'json' || r.preferredFormat === 'http' ? r.preferredFormat : DEFAULTS.preferredFormat
   const workspacePath =
     typeof r.workspacePath === 'string' && r.workspacePath ? r.workspacePath : DEFAULTS.workspacePath
-  return { workspacePath, preferredFormat }
+  const activeEnvironment =
+    typeof r.activeEnvironment === 'string' && r.activeEnvironment ? r.activeEnvironment : null
+  return { workspacePath, preferredFormat, activeEnvironment }
 }
 
 let cache: Settings | null = null

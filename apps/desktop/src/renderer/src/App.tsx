@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Settings as SettingsIcon, X } from 'lucide-react'
+import { EnvironmentDialog } from './components/EnvironmentDialog'
+import { EnvironmentSelect } from './components/EnvironmentSelect'
 import { RequestBar } from './components/RequestBar'
 import { RequestPane } from './components/RequestPane'
 import { RequestTitle } from './components/RequestTitle'
@@ -8,6 +10,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { cleanError } from './errors'
 import { StatusBadge, type EngineStatus } from './StatusBadge'
+import { useEnvironments } from './useEnvironments'
 import { useOpenRequest } from './useOpenRequest'
 import { useSend } from './useSend'
 import { useWorkspace } from './useWorkspace'
@@ -18,9 +21,11 @@ export function App() {
   const [engine, setEngine] = useState<EngineStatus>({ state: 'loading' })
   const [notice, setNotice] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showEnvs, setShowEnvs] = useState(false)
 
   const onError = useCallback((e: unknown) => setNotice(cleanError(e)), [])
-  const { settings, nodes, refresh, chooseWorkspace, setPreferredFormat } = useWorkspace(onError)
+  const { settings, setSettings, nodes, refresh, chooseWorkspace, setPreferredFormat } = useWorkspace(onError)
+  const envs = useEnvironments(settings?.workspacePath, onError)
   const { path, draft, dirty, patch, load, close, save, syncWithDisk, setPath } = useOpenRequest(onError)
   const { state, send, reset } = useSend()
 
@@ -36,7 +41,12 @@ export function App() {
     void syncWithDisk(new Set(nodes.map((n) => n.path)))
   }, [nodes, syncWithDisk])
 
-  const confirmDiscard = (): boolean => !dirty || window.confirm(DISCARD)
+  const selectEnvironment = async (name: string | null) => {
+    const next = await envs.setActive(name)
+    if (next) setSettings(next)
+  }
+
+  const confirmDiscard =(): boolean => !dirty || window.confirm(DISCARD)
 
   const open = async (target: string) => {
     if (target === path || !confirmDiscard()) return
@@ -123,6 +133,14 @@ export function App() {
       <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <span className="text-sm font-semibold tracking-tight">DeadLetter</span>
         <div className="flex items-center gap-2">
+          {settings?.workspacePath && (
+            <EnvironmentSelect
+              names={envs.names}
+              active={settings.activeEnvironment}
+              onSelect={(n) => void selectEnvironment(n)}
+              onManage={() => setShowEnvs(true)}
+            />
+          )}
           <StatusBadge status={engine} />
           <button
             type="button"
@@ -175,6 +193,18 @@ export function App() {
           </main>
         </div>
       </div>
+
+      {showEnvs && (
+        <EnvironmentDialog
+          names={envs.names}
+          initial={settings?.activeEnvironment ?? null}
+          onChanged={envs.reload}
+          onDeleted={(n) => {
+            if (settings?.activeEnvironment === n) setSettings({ ...settings, activeEnvironment: null })
+          }}
+          onClose={() => setShowEnvs(false)}
+        />
+      )}
 
       {showSettings && settings && (
         <SettingsDialog
