@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Settings as SettingsIcon, X } from 'lucide-react'
+import { ArrowLeftRight, Settings as SettingsIcon, X } from 'lucide-react'
 import { EnvironmentDialog } from './components/EnvironmentDialog'
 import { EnvironmentSelect } from './components/EnvironmentSelect'
+import { ImportExportDialog } from './components/ImportExportDialog'
 import { RequestBar } from './components/RequestBar'
 import { RequestPane } from './components/RequestPane'
 import { RequestTitle } from './components/RequestTitle'
@@ -10,6 +11,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { cleanError } from './errors'
 import { StatusBadge, type EngineStatus } from './StatusBadge'
+import { toFile } from './request'
 import { useEnvironments } from './useEnvironments'
 import { useOpenRequest } from './useOpenRequest'
 import { useSend } from './useSend'
@@ -22,6 +24,7 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showEnvs, setShowEnvs] = useState(false)
+  const [showInterop, setShowInterop] = useState(false)
 
   const onError = useCallback((e: unknown) => setNotice(cleanError(e)), [])
   const { settings, setSettings, nodes, refresh, chooseWorkspace, setPreferredFormat } = useWorkspace(onError)
@@ -66,6 +69,21 @@ export function App() {
     } catch (e) {
       onError(e)
     }
+  }
+
+  const copyCurl = async () => {
+    try {
+      await window.deadletter.interop.copyCurl(toFile(draft))
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  /** A request imported from cURL is opened right away, like a newly created one. */
+  const openImported = async (created: string) => {
+    if (!confirmDiscard()) return
+    await load(created)
+    reset()
   }
 
   const createFolder = async (dir: string, name: string) => {
@@ -142,6 +160,17 @@ export function App() {
             />
           )}
           <StatusBadge status={engine} />
+          {settings?.workspacePath && (
+            <button
+              type="button"
+              aria-label="Import and export"
+              title="Import & export"
+              onClick={() => setShowInterop(true)}
+              className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            >
+              <ArrowLeftRight className="size-4" />
+            </button>
+          )}
           <button
             type="button"
             aria-label="Settings"
@@ -178,7 +207,14 @@ export function App() {
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <RequestTitle name={draft.name} path={path} dirty={dirty} onSave={() => void save()} />
+          <RequestTitle
+            name={draft.name}
+            path={path}
+            dirty={dirty}
+            onSave={() => void save()}
+            onCopyCurl={copyCurl}
+            canCopyCurl={draft.url.trim().length > 0}
+          />
           <RequestBar
             method={draft.method}
             url={draft.url}
@@ -193,6 +229,17 @@ export function App() {
           </main>
         </div>
       </div>
+
+      {showInterop && (
+        <ImportExportDialog
+          onChanged={async () => {
+            await refresh()
+            await envs.reload()
+          }}
+          onCurlImported={openImported}
+          onClose={() => setShowInterop(false)}
+        />
+      )}
 
       {showEnvs && (
         <EnvironmentDialog

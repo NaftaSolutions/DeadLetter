@@ -120,7 +120,11 @@ fn body_of(body: &Value, req: &mut RequestFile, ctx: &mut Ctx) {
             default_header(req, "Content-Type", JSON_CONTENT_TYPE);
         }
         "formdata" | "file" | "binary" => {
-            ctx.warnings.push(format!("\"{}\": {} bodies are not supported; the body was left empty", req.name, body["mode"].as_str().unwrap_or("form-data")));
+            let kind = match body["mode"].as_str() {
+                Some("file") | Some("binary") => "file",
+                _ => "form-data",
+            };
+            ctx.warnings.push(format!("\"{}\": {kind} bodies are not supported; the body was left empty", req.name));
         }
         _ => {}
     }
@@ -326,7 +330,7 @@ mod tests {
         assert_eq!(r.requests[4].folder, "");
         assert_eq!(r.requests[4].request.url, "{{baseUrl}}/ping?k={{k}}");
 
-        assert!(r.warnings.iter().any(|w| w.contains("form-data") || w.contains("formdata")));
+        assert!(r.warnings.iter().any(|w| w.contains("form-data bodies")));
         assert!(r.warnings.iter().any(|w| w.contains("scripts")));
     }
 

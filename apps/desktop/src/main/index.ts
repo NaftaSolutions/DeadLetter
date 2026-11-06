@@ -3,6 +3,7 @@ import { app, BrowserWindow } from 'electron'
 import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
 import { registerEnvironmentIpc } from './environments'
+import { registerInteropIpc } from './interop'
 import { guardClose, registerCloseGuardIpc } from './closeGuard'
 
 function createWindow(): void {
@@ -33,6 +34,7 @@ app.whenReady().then(() => {
   registerEngineIpc()
   registerCollectionIpc()
   registerEnvironmentIpc()
+  registerInteropIpc()
   registerCloseGuardIpc()
   createWindow()
   app.on('activate', () => {

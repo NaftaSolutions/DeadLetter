@@ -23,6 +23,16 @@ Requests live as plain files in a workspace folder you pick (Settings, or the si
 
 Pick an environment in the header, then use `{{variable}}` in a request's URL, headers or body. Environments live in `.deadletter/environments/<name>.json` inside the workspace, so they travel with git. Variables marked secret keep their values in `<name>.secrets.json` next to it; a generated `.gitignore` there keeps that file out of commits. Sending a request that uses an undefined variable fails with a message naming it.
 
+## Import and export
+
+The arrows button in the header opens Import & export:
+
+- **From a file:** Postman collections (v2.x), Insomnia exports (v4, JSON) and OpenAPI 3 / Swagger 2 documents (JSON). Requests land in a new folder named after the collection (nothing is overwritten) and any variables become a new environment. OpenAPI path parameters become `{{variables}}`, security schemes become auth headers with secret variables. Anything that cannot be represented (scripts, multipart bodies, unsupported auth) is listed instead of silently dropped.
+- **From a cURL command:** paste one, including browsers' *Copy as cURL* output (bash or cmd).
+- **Export:** the whole workspace as a Postman v2.1 collection, or a single request via **Copy cURL** above the request (variables of the active environment are filled in).
+
+Not supported yet: YAML specs, Insomnia v5, multipart/form-data, `curl -d @file`.
+
 ## Auth and body types
 
 The Auth and Body tabs are editors over plain request data, so files stay portable and nothing new is stored:

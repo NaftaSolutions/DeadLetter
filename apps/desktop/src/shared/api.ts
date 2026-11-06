@@ -11,6 +11,19 @@ export type {
   TreeNode
 } from '@deadletter/engine'
 
+/** What an import produced; shown to the user once it has been written to the workspace. */
+export interface ImportOutcome {
+  /** `postman`, `insomnia` or `openapi`. */
+  source: string
+  name: string
+  /** Workspace-relative folder the requests were written to. */
+  folder: string
+  written: number
+  /** Name of the environment created from the imported variables, if there were any. */
+  environment: string | null
+  warnings: string[]
+}
+
 export type RequestFormat = 'json' | 'http'
 
 export interface Settings {
@@ -30,6 +43,10 @@ export const IPC = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsChooseWorkspace: 'settings:chooseWorkspace',
+  interopImportFile: 'interop:importFile',
+  interopImportCurl: 'interop:importCurl',
+  interopCopyCurl: 'interop:copyCurl',
+  interopExportPostman: 'interop:exportPostman',
   environmentList: 'environment:list',
   environmentRead: 'environment:read',
   environmentWrite: 'environment:write',
@@ -64,6 +81,18 @@ export interface DeadLetterApi {
     update(patch: Partial<Settings>): Promise<Settings>
     /** Opens a native folder picker; resolves with the (possibly unchanged) settings. */
     chooseWorkspace(): Promise<Settings>
+  }
+
+  /** Moving requests between DeadLetter and other tools. */
+  interop: {
+    /** Native file picker, then Postman v2 / Insomnia v4 / OpenAPI JSON is written to a new workspace folder. Null if cancelled. */
+    importFile(): Promise<ImportOutcome | null>
+    /** Creates a request in the workspace root from a pasted cURL command; resolves with its path. */
+    importCurl(command: string): Promise<string>
+    /** Copies the request as a cURL command (variables of the active environment filled in); resolves with the text. */
+    copyCurl(request: RequestFile): Promise<string>
+    /** Native save dialog, then the whole workspace as a Postman v2.1 collection. Resolves with the file path, or null if cancelled. */
+    exportPostman(): Promise<string | null>
   }
 
   /** Environments live in `.deadletter/environments/` of the workspace; secrets stay out of git. */

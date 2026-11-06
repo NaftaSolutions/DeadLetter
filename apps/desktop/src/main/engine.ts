@@ -4,7 +4,7 @@ import { IPC, type RequestPayload } from '../shared/api'
 import { getSettings, workspaceRoot } from './settings'
 
 /** Enabled variables of the active environment, or none when it is unset or gone. */
-function activeVariables(): { name: string; value: string }[] {
+export function activeVariables(): { name: string; value: string }[] {
   const root = workspaceRoot()
   const name = getSettings().activeEnvironment
   if (!root || !name) return []

@@ -11,6 +11,12 @@ const api: DeadLetterApi = {
     update: (patch) => ipcRenderer.invoke(IPC.settingsUpdate, patch),
     chooseWorkspace: () => ipcRenderer.invoke(IPC.settingsChooseWorkspace)
   },
+  interop: {
+    importFile: () => ipcRenderer.invoke(IPC.interopImportFile),
+    importCurl: (command) => ipcRenderer.invoke(IPC.interopImportCurl, command),
+    copyCurl: (request) => ipcRenderer.invoke(IPC.interopCopyCurl, request),
+    exportPostman: () => ipcRenderer.invoke(IPC.interopExportPostman)
+  },
   environments: {
     list: () => ipcRenderer.invoke(IPC.environmentList),
     read: (name) => ipcRenderer.invoke(IPC.environmentRead, name),
