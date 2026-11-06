@@ -15,6 +15,7 @@ import { toFile } from './request'
 import { useEnvironments } from './useEnvironments'
 import { useOpenRequest } from './useOpenRequest'
 import { useSend } from './useSend'
+import { useStableCallback } from './useStableCallback'
 import { useWorkspace } from './useWorkspace'
 
 const DISCARD = 'You have unsaved changes in this request. Discard them?'
@@ -51,15 +52,15 @@ export function App() {
 
   const confirmDiscard =(): boolean => !dirty || window.confirm(DISCARD)
 
-  const open = async (target: string) => {
+  const open = useStableCallback(async (target: string) => {
     if (target === path || !confirmDiscard()) return
     if (await load(target)) {
       setNotice(null)
       reset()
     }
-  }
+  })
 
-  const createRequest = async (dir: string, name: string) => {
+  const createRequest = useStableCallback(async (dir: string, name: string) => {
     if (!confirmDiscard()) return
     try {
       const created = await window.deadletter.collection.createRequest(dir, name)
@@ -69,7 +70,7 @@ export function App() {
     } catch (e) {
       onError(e)
     }
-  }
+  })
 
   const copyCurl = async () => {
     try {
@@ -86,16 +87,16 @@ export function App() {
     reset()
   }
 
-  const createFolder = async (dir: string, name: string) => {
+  const createFolder = useStableCallback(async (dir: string, name: string) => {
     try {
       await window.deadletter.collection.createFolder(dir, name)
       await refresh()
     } catch (e) {
       onError(e)
     }
-  }
+  })
 
-  const rename = async (target: string, name: string) => {
+  const rename = useStableCallback(async (target: string, name: string) => {
     const isOpen = target === path
     const containsOpen = path !== null && path.startsWith(`${target}/`)
     if (isOpen && !confirmDiscard()) return
@@ -107,9 +108,9 @@ export function App() {
     } catch (e) {
       onError(e)
     }
-  }
+  })
 
-  const remove = async (target: string) => {
+  const remove = useStableCallback(async (target: string) => {
     try {
       await window.deadletter.collection.remove(target)
       if (path && (path === target || path.startsWith(`${target}/`))) {
@@ -120,7 +121,7 @@ export function App() {
     } catch (e) {
       onError(e)
     }
-  }
+  })
 
   // Global shortcuts, wherever focus is (including inside the body textarea).
   const sendRef = useRef(() => {})

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, memo, Suspense, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import type { ResponsePayload } from '@shared/api'
 import { parseSetCookies } from '../cookies'
@@ -122,7 +122,7 @@ function Loaded({ res }: { res: ResponsePayload }) {
   )
 }
 
-export function ResponsePane({ state }: { state: SendState }) {
+export const ResponsePane = memo(function ResponsePane({ state }: { state: SendState }) {
   return (
     <section
       aria-label="Response"
@@ -143,4 +143,4 @@ export function ResponsePane({ state }: { state: SendState }) {
       {state.kind === 'done' && <Loaded res={state.response} />}
     </section>
   )
-}
+})

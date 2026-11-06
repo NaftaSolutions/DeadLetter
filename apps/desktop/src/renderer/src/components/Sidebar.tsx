@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react'
 import type { Settings, TreeNode } from '@shared/api'
 import { buildTree } from '../collection'
@@ -18,7 +18,7 @@ interface Props {
 
 const headerBtn = 'rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
 
-export function Sidebar({ settings, nodes, activePath, onOpen, onChooseWorkspace, onCreateRequest, onCreateFolder, onRename, onDelete }: Props) {
+export const Sidebar = memo(function Sidebar({ settings, nodes, activePath, onOpen, onChooseWorkspace, onCreateRequest, onCreateFolder, onRename, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [editing, setEditing] = useState<Editing | null>(null)
   const tree = useMemo(() => buildTree(nodes), [nodes])
@@ -100,4 +100,4 @@ export function Sidebar({ settings, nodes, activePath, onOpen, onChooseWorkspace
       </ul>
     </aside>
   )
-}
+})

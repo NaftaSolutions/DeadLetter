@@ -14,18 +14,32 @@ import 'monaco-editor/editor/common/services/treeViewsDndService'
 import 'monaco-editor/editor/contrib/codelens/browser/codeLensCache'
 import 'monaco-editor/editor/contrib/inlayHints/browser/inlayHintsController'
 import 'monaco-editor/editor/contrib/suggest/browser/suggestMemory'
-import { jsonDefaults } from 'monaco-editor/language/json/monaco.contribution'
 import 'monaco-editor/languages/definitions/xml/register'
 import 'monaco-editor/languages/definitions/html/register'
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
-import JsonWorker from 'monaco-editor/language/json/json.worker?worker'
 
-self.MonacoEnvironment = {
-  getWorker: (_id: string, label: string) => (label === 'json' ? new JsonWorker() : new EditorWorker())
-}
+self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
 
-// Responses are data, not documents under edit: no schema fetching, no squiggles.
-jsonDefaults.setDiagnosticsOptions({ validate: false, schemaValidation: 'ignore' })
+// Responses are data, not documents under edit, and the Rust engine already pretty-prints them.
+// Monaco's JSON language service (1.6 MB + an 880 KB worker) would add only validation and
+// formatting we switch off, so JSON gets a tokenizer and bracket rules; folding is indentation based.
+monaco.languages.register({ id: 'json', aliases: ['JSON'], mimetypes: ['application/json'] })
+monaco.languages.setLanguageConfiguration('json', {
+  brackets: [['{', '}'], ['[', ']']],
+  autoClosingPairs: [{ open: '{', close: '}', notIn: ['string'] }, { open: '[', close: ']', notIn: ['string'] }, { open: '"', close: '"', notIn: ['string'] }]
+})
+monaco.languages.setMonarchTokensProvider('json', {
+  tokenizer: {
+    root: [
+      [/"(?:[^"\\]|\\.)*"(?=\s*:)/, 'string.key.json'],
+      [/"(?:[^"\\]|\\.)*"/, 'string.value.json'],
+      [/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/, 'number'],
+      [/\b(?:true|false|null)\b/, 'keyword'],
+      [/[{}[\]]/, '@brackets'],
+      [/[,:]/, 'delimiter']
+    ]
+  }
+})
 
 monaco.editor.defineTheme('deadletter', {
   base: 'vs-dark',
