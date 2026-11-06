@@ -1,0 +1,11 @@
+{
+  "name": "deadletter",
+  "private": true,
+  "packageManager": "pnpm@11.13.1",
+  "scripts": {
+    "dev": "pnpm build:engine && pnpm --filter @deadletter/desktop dev",
+    "build": "pnpm build:engine && pnpm --filter @deadletter/desktop build",
+    "build:engine": "pnpm --filter @deadletter/engine build",
+    "typecheck": "pnpm --filter @deadletter/desktop typecheck"
+  }
+}

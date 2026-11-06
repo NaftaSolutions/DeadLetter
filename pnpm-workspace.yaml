@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - crates/*
+minimumReleaseAgeExclude:
+  - lucide-react@1.70.0
+onlyBuiltDependencies:
+  - electron
+  - esbuild
