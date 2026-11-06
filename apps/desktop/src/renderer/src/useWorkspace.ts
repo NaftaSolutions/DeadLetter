@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Settings, TreeNode } from '@shared/api'
 
 /** Settings plus the collection listing, kept fresh by the engine's file watcher. */
@@ -6,9 +6,13 @@ export function useWorkspace(onError: (e: unknown) => void) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [nodes, setNodes] = useState<TreeNode[]>([])
 
+  // Listings can resolve out of order (watcher events, explicit refreshes); only the latest request may win.
+  const latest = useRef(0)
   const refresh = useCallback(async () => {
+    const id = ++latest.current
     try {
-      setNodes(await window.deadletter.collection.list())
+      const listing = await window.deadletter.collection.list()
+      if (id === latest.current) setNodes(listing)
     } catch (e) {
       onError(e)
     }

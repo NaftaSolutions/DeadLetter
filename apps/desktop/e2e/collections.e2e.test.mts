@@ -125,6 +125,8 @@ test('rename keeps the editor on the file; delete closes it; folders work', asyn
     await page.getByLabel('New folder name').fill('Billing')
     await page.keyboard.press('Enter')
     await eventually(() => existsSync(join(ws, 'Billing')), 'folder created')
+    // The new row shifts the layout; a forced click below would otherwise hit the wrong row.
+    await page.locator('[role=tree]').getByText('Billing', { exact: true }).waitFor()
 
     await page.getByRole('button', { name: 'Delete Pong' }).click({ force: true })
     await eventually(async () => !existsSync(join(ws, 'Pong.json')) && (await url.inputValue()) === '', 'deleted and closed')

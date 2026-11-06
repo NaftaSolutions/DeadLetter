@@ -60,6 +60,9 @@ export function useOpenRequest(onError: (e: unknown) => void) {
       if (!current || dirtyRef.current) return
       try {
         const next = fromFile(await window.deadletter.collection.read(current))
+        // The read is asynchronous: the request may have been closed, switched or edited meanwhile,
+        // and applying stale disk content then would resurrect it or clobber the edit.
+        if (pathRef.current !== current || dirtyRef.current) return
         // Keep editor row ids stable when nothing changed, so focus is not lost.
         if (snapshot(next) !== snapshot(draftRef.current)) {
           setDraft(next)
