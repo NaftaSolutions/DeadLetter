@@ -1,3 +1,4 @@
+mod collection;
 mod http;
 
 use napi_derive::napi;
