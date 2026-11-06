@@ -1,6 +1,6 @@
-import type { HeaderEntry, RequestPayload } from '@shared/api'
+import type { HeaderEntry, RequestFile, RequestPayload } from '@shared/api'
 
-export const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const
+export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const
 export type Method = (typeof METHODS)[number]
 
 export interface KeyValue {
@@ -11,10 +11,43 @@ export interface KeyValue {
 }
 
 export interface RequestDraft {
+  /** Display name; the sidebar renames it together with the file. */
+  name: string
   method: Method
   url: string
   headers: KeyValue[]
   body: string
+}
+
+export const emptyDraft = (): RequestDraft => ({
+  name: '',
+  method: 'GET',
+  url: '',
+  headers: [newRow()],
+  body: ''
+})
+
+export function fromFile(f: RequestFile): RequestDraft {
+  return {
+    name: f.name,
+    method: f.method.toUpperCase() as Method,
+    url: f.url,
+    headers: [...f.headers.map((h) => ({ id: crypto.randomUUID(), ...h })), newRow()],
+    body: f.body ?? ''
+  }
+}
+
+/** What gets written to disk: no ids, no trailing empty editor row. */
+export function toFile(d: RequestDraft): RequestFile {
+  return {
+    name: d.name,
+    method: d.method,
+    url: d.url,
+    headers: d.headers
+      .filter((h) => h.name.trim() || h.value.trim())
+      .map(({ name, value, enabled }) => ({ name, value, enabled })),
+    body: d.body.length > 0 ? d.body : undefined
+  }
 }
 
 export const newRow = (): KeyValue => ({ id: crypto.randomUUID(), enabled: true, name: '', value: '' })

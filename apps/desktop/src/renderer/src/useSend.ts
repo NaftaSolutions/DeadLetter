@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ResponsePayload } from '@shared/api'
+import { cleanError } from './errors'
 import { toPayload, type RequestDraft } from './request'
 
 export type SendState =
@@ -7,10 +8,6 @@ export type SendState =
   | { kind: 'loading' }
   | { kind: 'done'; response: ResponsePayload }
   | { kind: 'error'; message: string }
-
-/** Strips Electron's "Error invoking remote method '...': Error:" wrapper. */
-const cleanError = (e: unknown): string =>
-  String(e instanceof Error ? e.message : e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 
 export function useSend() {
   const [state, setState] = useState<SendState>({ kind: 'idle' })
@@ -28,5 +25,11 @@ export function useSend() {
     }
   }, [])
 
-  return { state, send }
+  /** Clears the response and ignores any request still in flight (used when switching requests). */
+  const reset = useCallback(() => {
+    seq.current++
+    setState({ kind: 'idle' })
+  }, [])
+
+  return { state, send, reset }
 }

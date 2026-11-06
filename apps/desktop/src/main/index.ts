@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
 
 function createWindow(): void {
@@ -27,6 +28,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerEngineIpc()
+  registerCollectionIpc()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
