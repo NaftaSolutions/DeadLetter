@@ -27,11 +27,11 @@ Pick an environment in the header, then use `{{variable}}` in a request's URL, h
 
 The arrows button in the header opens Import & export:
 
-- **From a file:** Postman collections (v2.x), Insomnia exports (v4, JSON) and OpenAPI 3 / Swagger 2 documents (JSON). Requests land in a new folder named after the collection (nothing is overwritten) and any variables become a new environment. OpenAPI path parameters become `{{variables}}`, security schemes become auth headers with secret variables. Anything that cannot be represented (scripts, multipart bodies, unsupported auth) is listed instead of silently dropped.
+- **From a file:** Postman (collections, environments), Insomnia (v4 JSON, v5 YAML), OpenAPI 3 / Swagger 2 (JSON or YAML), Hoppscotch, HAR exports from browser dev tools, and `.http` files with several requests (VS Code REST Client, JetBrains; `@var = value` lines become variables). Requests land in a new folder named after the collection (nothing is overwritten) and variables become new environments, secrets kept out of git. OpenAPI path parameters become `{{variables}}` and security schemes become auth headers. Anything that cannot be represented (scripts, multipart bodies, unsupported auth) is listed instead of silently dropped.
 - **From a cURL command:** paste one, including browsers' *Copy as cURL* output (bash or cmd).
 - **Export:** the whole workspace as a Postman v2.1 collection, or a single request via **Copy cURL** above the request (variables of the active environment are filled in).
 
-Not supported yet: YAML specs, Insomnia v5, multipart/form-data, `curl -d @file`.
+Not supported yet: multipart/form-data and `curl -d @file`.
 
 ## Auth and body types
 

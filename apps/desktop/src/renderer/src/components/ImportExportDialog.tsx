@@ -11,7 +11,14 @@ interface Props {
   onClose: () => void
 }
 
-const SOURCES: Record<string, string> = { postman: 'Postman', insomnia: 'Insomnia', openapi: 'OpenAPI' }
+const SOURCES: Record<string, string> = {
+  postman: 'Postman',
+  insomnia: 'Insomnia',
+  openapi: 'OpenAPI',
+  hoppscotch: 'Hoppscotch',
+  har: 'a HAR file',
+  http: 'an .http file'
+}
 
 const section = 'space-y-2 rounded-md border border-zinc-800 p-3'
 const primary = 'rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-white disabled:opacity-40'
@@ -93,9 +100,26 @@ export function ImportExportDialog({ onChanged, onCurlImported, onClose }: Props
             <p className="flex items-start gap-1.5 text-emerald-300">
               <CircleCheck className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                Imported {outcome.written} request{outcome.written === 1 ? '' : 's'} from {SOURCES[outcome.source] ?? outcome.source} into{' '}
-                <code className="text-emerald-200">{outcome.folder}</code>
-                {outcome.environment && <> and created the environment <code className="text-emerald-200">{outcome.environment}</code></>}.
+                {outcome.written > 0 ? (
+                  <>
+                    Imported {outcome.written} request{outcome.written === 1 ? '' : 's'} from {SOURCES[outcome.source] ?? outcome.source} into{' '}
+                    <code className="text-emerald-200">{outcome.folder}</code>
+                  </>
+                ) : (
+                  <>Imported from {SOURCES[outcome.source] ?? outcome.source}</>
+                )}
+                {outcome.environments.length > 0 && (
+                  <>
+                    {outcome.written > 0 ? ' and created the' : ': created the'} environment{outcome.environments.length === 1 ? '' : 's'}{' '}
+                    {outcome.environments.map((n, i) => (
+                      <span key={n}>
+                        {i > 0 && ', '}
+                        <code className="text-emerald-200">{n}</code>
+                      </span>
+                    ))}
+                  </>
+                )}
+                .
               </span>
             </p>
             {outcome.warnings.map((w, i) => (
@@ -109,8 +133,9 @@ export function ImportExportDialog({ onChanged, onCurlImported, onClose }: Props
         <section className={section} aria-label="Import from a file">
           <h3 className="flex items-center gap-1.5 font-medium text-zinc-300"><FileUp className="size-3.5" /> From a file</h3>
           <p className="text-zinc-500">
-            Postman collection (v2.x), Insomnia export (v4) or OpenAPI / Swagger (JSON). Requests are written to a new
-            folder, and any variables become a new environment. Nothing is overwritten.
+            Postman (collections and environments), Insomnia (v4 and v5), OpenAPI / Swagger (JSON or YAML), Hoppscotch,
+            HAR exports from browser dev tools, and .http files from VS Code or JetBrains. Requests are written to a new
+            folder, and variables become new environments. Nothing is overwritten.
           </p>
           <button type="button" disabled={busy} onClick={() => void importFile()} className={secondary}>Choose file…</button>
         </section>

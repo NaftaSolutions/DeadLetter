@@ -42,7 +42,7 @@ async function importFile(event: Electron.IpcMainInvokeEvent): Promise<ImportOut
     title: 'Import collection',
     properties: ['openFile'],
     filters: [
-      { name: 'Postman, Insomnia or OpenAPI (JSON)', extensions: ['json'] },
+      { name: 'Collections and specs', extensions: ['json', 'yaml', 'yml', 'har', 'http', 'rest'] },
       { name: 'All files', extensions: ['*'] }
     ]
   }
@@ -54,17 +54,23 @@ async function importFile(event: Electron.IpcMainInvokeEvent): Promise<ImportOut
   const parsed = parseImport(readFileSync(file, 'utf8'))
   const summary = writeImport(r, '', parsed, getSettings().preferredFormat)
 
-  let environment: string | null = null
-  if (parsed.variables.length > 0) {
-    environment = uniqueEnvironmentName(parsed.name, listEnvironments(r))
-    writeEnvironment(r, { name: environment, variables: parsed.variables })
+  // Collection variables become one environment, the source's own environments are kept as they are.
+  const environments: string[] = []
+  const toSave = [
+    ...(parsed.variables.length > 0 ? [{ name: parsed.name, variables: parsed.variables }] : []),
+    ...parsed.environments
+  ]
+  for (const env of toSave) {
+    const name = uniqueEnvironmentName(env.name, [...listEnvironments(r), ...environments])
+    writeEnvironment(r, { name, variables: env.variables })
+    environments.push(name)
   }
   return {
     source: parsed.source,
     name: parsed.name,
     folder: summary.folder,
     written: summary.written,
-    environment,
+    environments,
     warnings: parsed.warnings
   }
 }

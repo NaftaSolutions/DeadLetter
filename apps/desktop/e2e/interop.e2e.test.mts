@@ -105,7 +105,7 @@ test('import errors are explained and cancelling changes nothing', async () => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] })
     }, file)
     await page.getByRole('button', { name: 'Choose file…' }).click()
-    await dialog.getByRole('alert').getByText(/YAML specs are not supported/).waitFor()
+    await dialog.getByRole('alert').getByText(/has no "paths"/).waitFor()
     await shot('14-import-error')
 
     await app.evaluate(({ dialog }) => {
@@ -114,5 +114,43 @@ test('import errors are explained and cancelling changes nothing', async () => {
     await page.getByRole('button', { name: 'Choose file…' }).click()
     await page.waitForTimeout(300)
     assert.equal(readdirSync(ws).filter((n) => !n.startsWith('.')).length, 0)
+  })
+})
+
+test('imports a YAML OpenAPI spec, a Postman environment and a multi-request .http file', async () => {
+  await withApp({}, async ({ app, page, ws, pageErrors }) => {
+    const dialog = page.getByRole('dialog', { name: 'Import & export' })
+    await page.getByRole('button', { name: 'Import and export' }).click()
+    const pick = async (name: string, content: string): Promise<void> => {
+      const file = join(dirname(ws), name)
+      writeFileSync(file, content)
+      await app.evaluate(({ dialog }, f) => {
+        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] })
+      }, file)
+      await page.getByRole('button', { name: 'Choose file…' }).click()
+    }
+
+    await pick(
+      'pets.yaml',
+      'openapi: 3.0.0\ninfo:\n  title: Pets\nservers:\n  - url: https://pets.test\npaths:\n  /pets/{id}:\n    get:\n      tags: [pets]\n      summary: Get a pet\n      parameters:\n        - {name: id, in: path, required: true, schema: {type: integer}}\n'
+    )
+    await dialog.getByText(/Imported 1 request from OpenAPI into/).waitFor({ timeout: 8000 })
+    assert.match(read(join(ws, 'Pets', 'pets', 'Get-a-pet.http')), /^### Get a pet\nGET \{\{baseUrl\}\}\/pets\/\{\{id\}\}\n/)
+    assert.match(read(join(ws, '.deadletter', 'environments', 'Pets.json')), /https:\/\/pets\.test/)
+
+    await pick(
+      'prod.postman_environment.json',
+      JSON.stringify({ name: 'Prod', _postman_variable_scope: 'environment', values: [{ key: 'host', value: 'p.test', enabled: true }, { key: 'token', value: 'sekret', type: 'secret', enabled: true }] })
+    )
+    await dialog.getByText(/created the environment/).waitFor({ timeout: 8000 })
+    const shared = read(join(ws, '.deadletter', 'environments', 'Prod.json'))
+    assert.match(shared, /p\.test/)
+    assert.doesNotMatch(shared, /sekret/)
+    assert.match(read(join(ws, '.deadletter', 'environments', 'Prod.secrets.json')), /sekret/)
+
+    await pick('api.http', '@host = https://api.test\n\n### List\nGET {{host}}/users\n\n### Create\nPOST {{host}}/users\nContent-Type: application/json\n\n{"a":1}\n')
+    await dialog.getByText(/Imported 2 requests from an \.http file/).waitFor({ timeout: 8000 })
+    assert.ok(existsSync(join(ws, 'Imported-http', 'List.http')) || readdirSync(ws).some((n) => n.startsWith('Imported')))
+    assert.deepEqual(pageErrors, [])
   })
 })

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use crate::collection::environment::EnvVariable;
+use crate::collection::environment::{EnvVariable, Environment};
 use crate::collection::model::{RequestFile, RequestHeader};
 
 use super::util::{append_query, basic, bearer, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE};
@@ -162,8 +162,70 @@ pub fn import(v: &Value) -> Res<ImportResult> {
         name: workspace.map(|w| s(&w["name"])).unwrap_or_default(),
         requests,
         variables,
+        environments: Vec::new(),
         warnings,
     })
+}
+
+// --- v5 (YAML) ---------------------------------------------------------------------------
+
+pub fn detect_v5(v: &Value) -> bool {
+    v.get("type").and_then(Value::as_str).is_some_and(|t| t.starts_with("collection.insomnia.rest/") || t.starts_with("environment.insomnia.rest/"))
+}
+
+fn env_variables(data: &Value) -> Vec<EnvVariable> {
+    data.as_object()
+        .map(|o| {
+            o.iter()
+                .filter_map(|(k, val)| match val {
+                    Value::String(t) => Some((k, convert_vars(t))),
+                    Value::Number(n) => Some((k, n.to_string())),
+                    Value::Bool(b) => Some((k, b.to_string())),
+                    _ => None,
+                })
+                .map(|(k, value)| EnvVariable { name: k.clone(), value, enabled: true, secret: false })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn walk_v5(items: &[Value], folder: &str, warnings: &mut Vec<String>, out: &mut Vec<ImportedRequest>) {
+    for item in items {
+        if let Some(children) = item.get("children").and_then(Value::as_array) {
+            let name = s(&item["name"]);
+            let sub = if folder.is_empty() { name } else { format!("{folder}/{name}") };
+            walk_v5(children, &sub, warnings, out);
+        } else if item.get("url").is_some() || item.get("method").is_some() {
+            out.push(ImportedRequest { folder: folder.to_string(), request: request_of(item, warnings) });
+        }
+    }
+}
+
+/// Insomnia v5 collections and environments (YAML, already converted to JSON values).
+pub fn import_v5(v: &Value) -> Res<ImportResult> {
+    let name = s(&v["name"]);
+    let mut warnings = Vec::new();
+    let mut requests = Vec::new();
+    let mut variables = Vec::new();
+    let mut environments = Vec::new();
+
+    if s(&v["type"]).starts_with("environment.") {
+        let env_name = if name.trim().is_empty() { "Insomnia environment".to_string() } else { name.clone() };
+        environments.push(Environment { name: env_name, variables: env_variables(&v["data"]) });
+    } else {
+        let items = v.get("collection").and_then(Value::as_array).ok_or("Not an Insomnia collection: no \"collection\" list")?;
+        walk_v5(items, "", &mut warnings, &mut requests);
+        variables = env_variables(&v["environments"]["data"]);
+        if let Some(subs) = v["environments"]["subEnvironments"].as_array() {
+            for sub in subs {
+                let n = s(&sub["name"]);
+                if !n.trim().is_empty() {
+                    environments.push(Environment { name: format!("{} - {n}", if name.is_empty() { "Insomnia" } else { &name }), variables: env_variables(&sub["data"]) });
+                }
+            }
+        }
+    }
+    Ok(ImportResult { source: "insomnia".into(), name, requests, variables, environments, warnings })
 }
 
 #[cfg(test)]
@@ -205,5 +267,39 @@ mod tests {
         assert!(r.warnings.iter().any(|w| w.contains("oauth2")));
         let names: Vec<_> = r.variables.iter().map(|v| v.name.as_str()).collect();
         assert!(names.contains(&"base") && names.contains(&"n") && !names.contains(&"nested"));
+    }
+
+    #[test]
+    fn imports_v5_yaml_collection() {
+        let doc: Value = serde_norway::from_str(
+            "type: collection.insomnia.rest/5.0
+name: Shop
+collection:
+  - name: Users
+    children:
+      - url: '{{ _.base }}/users'
+        name: List
+        method: GET
+        authentication: {type: bearer, token: abc}
+  - url: http://x/ping
+    name: Ping
+    method: GET
+environments:
+  name: Base
+  data: {base: 'https://shop.test'}
+  subEnvironments:
+    - name: Prod
+      data: {base: 'https://p.test'}
+",
+        )
+        .unwrap();
+        assert!(detect_v5(&doc));
+        let r = import_v5(&doc).unwrap();
+        assert_eq!(r.requests.len(), 2);
+        assert_eq!(r.requests[0].folder, "Users");
+        assert_eq!(r.requests[0].request.url, "{{base}}/users");
+        assert_eq!(r.requests[0].request.headers[0].value, "Bearer abc");
+        assert_eq!(r.variables[0].value, "https://shop.test");
+        assert_eq!(r.environments[0].name, "Shop - Prod");
     }
 }

@@ -308,6 +308,7 @@ pub fn import(v: &Value) -> Res<ImportResult> {
         name: s(&v["info"]["title"]),
         requests,
         variables: vars.0,
+        environments: Vec::new(),
         warnings: Vec::new(),
     })
 }

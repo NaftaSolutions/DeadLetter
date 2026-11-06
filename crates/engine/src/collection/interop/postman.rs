@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use crate::collection::model::{RequestFile, RequestHeader};
 use crate::http::encode_basic_auth;
-use crate::collection::environment::EnvVariable;
+use crate::collection::environment::{EnvVariable, Environment};
 
 use super::util::{
     decode_field, append_query, basic, bearer, content_type, default_header, form_body, header, name_from_url, FORM_CONTENT_TYPE,
@@ -209,7 +209,40 @@ pub fn import(v: &Value) -> Res<ImportResult> {
         name: s(&v["info"]["name"]),
         requests,
         variables,
+        environments: Vec::new(),
         warnings: ctx.warnings,
+    })
+}
+
+pub fn detect_environment(v: &Value) -> bool {
+    v.get("values").is_some_and(Value::is_array)
+        && v.get("_postman_variable_scope").and_then(Value::as_str).is_some_and(|s| s == "environment" || s == "globals")
+}
+
+/// A Postman environment (or globals) export: variables only, no requests.
+pub fn import_environment(v: &Value) -> Res<ImportResult> {
+    let variables = v["values"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|e| !s(&e["key"]).is_empty())
+                .map(|e| EnvVariable {
+                    name: s(&e["key"]),
+                    value: s(&e["value"]),
+                    enabled: e.get("enabled").and_then(Value::as_bool).unwrap_or(true),
+                    secret: s(&e["type"]) == "secret",
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let name = if s(&v["name"]).trim().is_empty() { "Postman environment".to_string() } else { s(&v["name"]) };
+    Ok(ImportResult {
+        source: "postman".into(),
+        name: name.clone(),
+        requests: Vec::new(),
+        variables: Vec::new(),
+        environments: vec![Environment { name, variables }],
+        warnings: Vec::new(),
     })
 }
 

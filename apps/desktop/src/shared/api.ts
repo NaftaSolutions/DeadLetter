@@ -19,8 +19,8 @@ export interface ImportOutcome {
   /** Workspace-relative folder the requests were written to. */
   folder: string
   written: number
-  /** Name of the environment created from the imported variables, if there were any. */
-  environment: string | null
+  /** Names of the environments created from imported variables. */
+  environments: string[]
   warnings: string[]
 }
 
@@ -85,7 +85,7 @@ export interface DeadLetterApi {
 
   /** Moving requests between DeadLetter and other tools. */
   interop: {
-    /** Native file picker, then Postman v2 / Insomnia v4 / OpenAPI JSON is written to a new workspace folder. Null if cancelled. */
+    /** Native file picker, then a Postman / Insomnia / OpenAPI / Hoppscotch / HAR / .http file is written to a new workspace folder (plus environments). Null if cancelled. */
     importFile(): Promise<ImportOutcome | null>
     /** Creates a request in the workspace root from a pasted cURL command; resolves with its path. */
     importCurl(command: string): Promise<string>

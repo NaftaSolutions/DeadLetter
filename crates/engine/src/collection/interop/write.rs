@@ -30,6 +30,11 @@ pub fn write_import(root: &str, dir: &str, result: &ImportResult, format: &str) 
         return Err("Target folder does not exist".into());
     }
 
+    // Environment-only imports (e.g. a Postman environment file) create no folder.
+    if result.requests.is_empty() {
+        return Ok(ImportSummary { folder: String::new(), written: 0 });
+    }
+
     let title = if result.name.trim().is_empty() { FALLBACK_FOLDER } else { result.name.trim() };
     let base = unique_path(&parent, &safe_folder(title), None);
     fs::create_dir(&base).map_err(|e| format!("Cannot create folder: {e}"))?;
@@ -168,7 +173,9 @@ mod tests {
 
     #[test]
     fn rejects_unknown_documents_with_a_helpful_message() {
-        assert!(parse_document("openapi: 3.0.0\ninfo: {}").unwrap_err().contains("YAML"));
+        assert!(parse_document("just: some\nother: yaml").unwrap_err().contains("Unrecognized"));
+        assert!(parse_document("[1,2]").unwrap_err().contains("Unrecognized"));
+        assert!(parse_document("  ").unwrap_err().contains("empty"));
         assert!(parse_document("curl http://x").unwrap_err().contains("cURL"));
         assert!(parse_document("{\"a\":1}").unwrap_err().contains("Unrecognized"));
         assert!(parse_document("{nope").unwrap_err().contains("Invalid JSON"));
