@@ -7,14 +7,17 @@ import { RequestBar } from './components/RequestBar'
 import { RequestPane } from './components/RequestPane'
 import { RequestTitle } from './components/RequestTitle'
 import { ResponsePane } from './components/ResponsePane'
+import { StreamPane } from './components/StreamPane'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { cleanError } from './errors'
 import { StatusBadge, type EngineStatus } from './StatusBadge'
-import { toFile } from './request'
+import { toFile, toPayload } from './request'
+import { streamKind } from './stream'
 import { useEnvironments } from './useEnvironments'
 import { useOpenRequest } from './useOpenRequest'
 import { useSend } from './useSend'
+import { useStream } from './useStream'
 import { useStableCallback } from './useStableCallback'
 import { useWorkspace } from './useWorkspace'
 
@@ -31,7 +34,14 @@ export function App() {
   const { settings, setSettings, nodes, refresh, chooseWorkspace, setPreferredFormat } = useWorkspace(onError)
   const envs = useEnvironments(settings?.workspacePath, onError)
   const { path, draft, dirty, patch, load, close, save, syncWithDisk, setPath } = useOpenRequest(onError)
-  const { state, send, reset } = useSend()
+  const { state, send, reset: resetHttp } = useSend()
+  const stream = useStream()
+  const kind = streamKind(draft)
+  const streamPhase = stream.state.phase
+  const reset = useCallback(() => {
+    resetHttp()
+    stream.reset()
+  }, [resetHttp, stream.reset])
 
   useEffect(() => {
     window.deadletter
@@ -126,7 +136,12 @@ export function App() {
   // Global shortcuts, wherever focus is (including inside the body textarea).
   const sendRef = useRef(() => {})
   sendRef.current = () => {
-    if (state.kind !== 'loading') void send(draft)
+    if (kind) {
+      if (streamPhase === 'open' || streamPhase === 'connecting') stream.stop()
+      else if (draft.url.trim()) void stream.start(kind, toPayload(draft))
+    } else if (state.kind !== 'loading') {
+      void send(draft)
+    }
   }
   const saveRef = useRef(() => {})
   saveRef.current = () => {
@@ -219,14 +234,21 @@ export function App() {
           <RequestBar
             method={draft.method}
             url={draft.url}
-            loading={state.kind === 'loading'}
+            loading={!kind && state.kind === 'loading'}
+            stream={kind}
+            connected={kind !== null && (streamPhase === 'open' || streamPhase === 'connecting')}
             onMethod={(method) => patch({ method })}
             onUrl={(url) => patch({ url })}
             onSend={() => sendRef.current()}
+            onStop={stream.stop}
           />
           <main className="flex min-h-0 flex-1 flex-col">
             <RequestPane key={path ?? ''} draft={draft} onChange={patch} />
-            <ResponsePane state={state} />
+            {kind ? (
+              <StreamPane kind={kind} state={stream.state} onSend={stream.send} onClear={stream.clear} />
+            ) : (
+              <ResponsePane state={state} />
+            )}
           </main>
         </div>
       </div>

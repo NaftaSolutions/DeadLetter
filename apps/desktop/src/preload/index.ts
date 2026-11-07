@@ -1,10 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type DeadLetterApi } from '../shared/api'
+import { IPC, type DeadLetterApi, type StreamEvent } from '../shared/api'
 
 const api: DeadLetterApi = {
   ping: () => ipcRenderer.invoke(IPC.ping),
   executeRequest: (req) => ipcRenderer.invoke(IPC.executeRequest, req),
   formatJson: (text) => ipcRenderer.invoke(IPC.formatJson, text),
+  stream: {
+    open: (id, kind, req) => ipcRenderer.invoke(IPC.streamOpen, id, kind, req),
+    send: (id, text) => ipcRenderer.invoke(IPC.streamSend, id, text),
+    close: (id) => ipcRenderer.invoke(IPC.streamClose, id),
+    onEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, e: StreamEvent): void => listener(e)
+      ipcRenderer.on(IPC.streamEvent, handler)
+      return () => ipcRenderer.removeListener(IPC.streamEvent, handler)
+    }
+  },
   setDirty: (dirty) => ipcRenderer.send(IPC.setDirty, dirty),
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet),

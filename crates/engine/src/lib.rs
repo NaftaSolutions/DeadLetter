@@ -1,6 +1,7 @@
 mod collection;
 mod format;
 mod http;
+mod stream;
 mod vars;
 
 use napi_derive::napi;

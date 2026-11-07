@@ -1,4 +1,4 @@
-import type { Environment, RequestFile, RequestPayload, ResponsePayload, TreeNode } from '@deadletter/engine'
+import type { Environment, RequestFile, RequestPayload, ResponsePayload, StreamEvent, TreeNode } from '@deadletter/engine'
 
 export type {
   EnvVariable,
@@ -8,6 +8,7 @@ export type {
   RequestHeader,
   RequestPayload,
   ResponsePayload,
+  StreamEvent,
   TreeNode
 } from '@deadletter/engine'
 
@@ -23,6 +24,9 @@ export interface ImportOutcome {
   environments: string[]
   warnings: string[]
 }
+
+/** `sse` streams a normal HTTP response; `ws` is a WebSocket. */
+export type StreamKind = 'sse' | 'ws'
 
 export type RequestFormat = 'json' | 'http'
 
@@ -40,6 +44,11 @@ export const IPC = {
   ping: 'engine:ping',
   executeRequest: 'engine:executeRequest',
   formatJson: 'engine:formatJson',
+  streamOpen: 'stream:open',
+  streamSend: 'stream:send',
+  streamClose: 'stream:close',
+  /** main -> renderer push: something happened on a stream session. */
+  streamEvent: 'stream:event',
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsChooseWorkspace: 'settings:chooseWorkspace',
@@ -73,6 +82,16 @@ export interface DeadLetterApi {
 
   /** Pretty-prints JSON on a Rust worker thread; resolves to null when the text is not valid JSON. */
   formatJson(text: string): Promise<string | null>
+
+  /** Long-lived connections. The caller picks the session id; events for it arrive through `onEvent`. */
+  stream: {
+    /** Resolves once the session is started (connection progress arrives as events); rejects on invalid input. */
+    open(id: number, kind: StreamKind, req: RequestPayload): Promise<void>
+    /** Sends a text message on an open WebSocket session. */
+    send(id: number, text: string): Promise<void>
+    close(id: number): Promise<void>
+    onEvent(listener: (event: StreamEvent) => void): () => void
+  }
 
   /** Tells the main process whether closing the window would lose unsaved edits. */
   setDirty(dirty: boolean): void

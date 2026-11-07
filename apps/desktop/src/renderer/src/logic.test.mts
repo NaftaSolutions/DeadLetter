@@ -13,6 +13,8 @@ import {
   serializeUrlencoded
 } from './requestBody.ts'
 import { newRow, type KeyValue } from './request.ts'
+import { connecting, idleStream, MAX_ENTRIES, reduceStream, streamKind } from './stream.ts'
+import type { StreamEvent } from '@shared/api'
 
 const row = (name: string, value: string, enabled = true): KeyValue => ({ ...newRow(), name, value, enabled })
 const pairs = (hs: KeyValue[]): string[][] => hs.map((h) => [h.name, h.value])
@@ -110,4 +112,24 @@ test('body mode is derived from Content-Type and body shape', () => {
   assert.equal(detectBodyMode([mp], serializeMultipart([{ name: 'a', value: '1' }])), 'multipart')
   assert.equal(detectBodyMode([mp], ''), 'multipart')
   assert.equal(detectBodyMode([mp], '--other\nwhatever'), 'raw')
+})
+
+test('streams: kind detection and event log reduction', () => {
+  const draft = (url: string, headers: KeyValue[] = []) => ({ url, headers })
+  assert.equal(streamKind(draft('wss://x.test/socket')), 'ws')
+  assert.equal(streamKind(draft('https://x.test', [row('Accept', 'text/event-stream')])), 'sse')
+  assert.equal(streamKind(draft('https://x.test', [row('Accept', 'text/event-stream', false)])), null)
+  assert.equal(streamKind(draft('https://x.test')), null)
+
+  const ev = (e: Partial<StreamEvent> & { kind: string }): StreamEvent => ({ id: 1, atMs: 5, ...e })
+  let s = connecting()
+  s = reduceStream(s, ev({ kind: 'open', status: 200, statusText: 'OK', headers: [] }))
+  s = reduceStream(s, ev({ kind: 'message', data: 'hi', event: 'tick' }))
+  s = reduceStream(s, ev({ kind: 'close', data: 'Disconnected' }))
+  assert.deepEqual([s.phase, s.status?.code, s.entries.map((e) => e.kind)], ['closed', 200, ['info', 'message', 'info']])
+  assert.equal(s.entries[1]?.event, 'tick')
+
+  let busy = idleStream()
+  for (let i = 0; i < MAX_ENTRIES + 3; i++) busy = reduceStream(busy, ev({ kind: 'message', data: String(i) }))
+  assert.deepEqual([busy.entries.length, busy.dropped, busy.entries[0]?.data], [MAX_ENTRIES, 3, '3'])
 })

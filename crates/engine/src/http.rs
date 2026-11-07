@@ -83,7 +83,7 @@ fn client() -> Result<&'static Client> {
         .map_err(|e| Error::new(Status::GenericFailure, e.clone()))
 }
 
-fn invalid(msg: String) -> Error {
+pub(crate) fn invalid(msg: String) -> Error {
     Error::new(Status::InvalidArg, msg)
 }
 
@@ -102,7 +102,7 @@ pub(crate) fn with_scheme(url: String) -> String {
 
 /// Applies `{{name}}` substitution to the URL, header names/values and body, failing
 /// with the list of variables that have no value.
-fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPayload> {
+pub(crate) fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPayload> {
     let vars: HashMap<String, String> = variables.into_iter().map(|v| (v.name, v.value)).collect();
     let mut missing: Vec<String> = Vec::new();
     let mut apply = |text: &str, encode: bool| {
@@ -142,15 +142,12 @@ fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Result<RequestPa
     Err(invalid(format!("Undefined {noun}: {list}. Define {} in the active environment.", if missing.len() == 1 { "it" } else { "them" })))
 }
 
-/// Executes an HTTP request on the Rust side; the returned Promise rejects with a
-/// readable message on invalid input or network failure (non-2xx is NOT an error).
-#[napi]
-pub async fn execute_request(req: RequestPayload, variables: Option<Vec<HeaderEntry>>) -> Result<ResponsePayload> {
-    let req = resolve(req, variables.unwrap_or_default())?;
+/// Turns a resolved request into a reqwest builder (method, headers, body).
+pub(crate) fn build_request(client: &Client, req: RequestPayload) -> Result<reqwest::RequestBuilder> {
     let method = Method::from_bytes(req.method.trim().to_uppercase().as_bytes())
         .map_err(|_| invalid(format!("Invalid HTTP method: {}", req.method)))?;
 
-    let mut builder = client()?.request(method, req.url.trim());
+    let mut builder = client.request(method, req.url.trim());
     for h in &req.headers {
         let name = h.name.trim();
         if name.is_empty() {
@@ -165,6 +162,15 @@ pub async fn execute_request(req: RequestPayload, variables: Option<Vec<HeaderEn
     if let Some(body) = req.body.filter(|b| !b.is_empty()) {
         builder = builder.body(body);
     }
+    Ok(builder)
+}
+
+/// Executes an HTTP request on the Rust side; the returned Promise rejects with a
+/// readable message on invalid input or network failure (non-2xx is NOT an error).
+#[napi]
+pub async fn execute_request(req: RequestPayload, variables: Option<Vec<HeaderEntry>>) -> Result<ResponsePayload> {
+    let req = resolve(req, variables.unwrap_or_default())?;
+    let builder = build_request(client()?, req)?;
 
     let started = Instant::now();
     let res = builder.send().await.map_err(describe)?;
@@ -191,7 +197,7 @@ pub async fn execute_request(req: RequestPayload, variables: Option<Vec<HeaderEn
     })
 }
 
-fn describe(e: reqwest::Error) -> Error {
+pub(crate) fn describe(e: reqwest::Error) -> Error {
     let kind = if e.is_timeout() {
         "Request timed out"
     } else if e.is_connect() {

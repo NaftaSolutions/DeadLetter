@@ -47,6 +47,15 @@ The Auth and Body tabs are editors over plain request data, so files stay portab
 
 Bodies open in a read-only Monaco editor (syntax highlighting, folding, Ctrl+F search) with Pretty/Raw, Wrap and Copy. JSON is pretty-printed by the Rust engine on a worker thread, keeping key order and big numbers intact. The Cookies tab lists every `Set-Cookie` header; Headers shows them all, duplicates included. Monaco loads on first use and runs fully offline.
 
+## Streaming: SSE and WebSocket
+
+No new request type or file format: the request decides how it runs.
+
+- **WebSocket:** a URL starting with `ws://` or `wss://`. Send becomes Connect; the pane below is a live log (received, sent, timestamps) with a message box. Headers are sent with the handshake, and `{{variables}}` work in the URL, headers and outgoing messages. Binary frames are shown as a size only.
+- **Server-Sent Events:** any request with an enabled `Accept: text/event-stream` header. Events are parsed by the engine (event name, id, multi-line data) and listed as they arrive; Stop ends the stream. Streams have no overall timeout. If the server answers with something that is not an event stream, its raw chunks are shown instead.
+
+The log keeps the last 5000 entries. Not supported yet: gRPC, a `ws://` URL that only exists after variable substitution (start it with a literal `ws://`), and saving messages with the request.
+
 ## Tests
 
 ```sh
