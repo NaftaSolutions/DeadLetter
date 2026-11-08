@@ -101,6 +101,19 @@ test('multipart: text fields round-trip, files and malformed bodies stay raw', (
   assert.equal(serializeMultipart([]), '------DeadLetterFormBoundary--\n')
 })
 
+test('multipart: file fields are `< path` references that round-trip', () => {
+  const fields = [
+    { name: 'a', value: '1' },
+    { name: 'avatar', value: '< C:\\pics\\me.png' },
+    { name: 'doc', value: '< /home/u/a b.pdf' },
+    { name: 'text', value: '< not-absolute' }
+  ]
+  const body = serializeMultipart(fields, 'b')
+  assert.match(body, /name="avatar"; filename="me.png"\n\n< C:\\pics\\me.png\n/)
+  assert.match(body, /name="text"\n\n< not-absolute\n/) // relative: stays a text field
+  assert.deepEqual(parseMultipart(body, 'b'), fields)
+})
+
 test('body mode is derived from Content-Type and body shape', () => {
   assert.equal(detectBodyMode([row('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8')], ''), 'urlencoded')
   assert.equal(detectBodyMode([row('Content-Type', 'application/json')], '{"query":"{ a }"}'), 'graphql')

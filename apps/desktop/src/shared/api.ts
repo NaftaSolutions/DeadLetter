@@ -47,6 +47,7 @@ export const IPC = {
   streamOpen: 'stream:open',
   streamSend: 'stream:send',
   streamClose: 'stream:close',
+  pickFile: 'dialog:pickFile',
   /** main -> renderer push: something happened on a stream session. */
   streamEvent: 'stream:event',
   settingsGet: 'settings:get',
@@ -92,6 +93,9 @@ export interface DeadLetterApi {
     close(id: number): Promise<void>
     onEvent(listener: (event: StreamEvent) => void): () => void
   }
+
+  /** Native file picker; resolves with the absolute path, or null if cancelled. */
+  pickFile(): Promise<string | null>
 
   /** Tells the main process whether closing the window would lose unsaved edits. */
   setDirty(dirty: boolean): void

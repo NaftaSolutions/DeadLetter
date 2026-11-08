@@ -8,6 +8,7 @@ import {
   MULTIPART_CONTENT_TYPE,
   boundaryOf,
   detectBodyMode,
+  fileValue,
   parseGraphql,
   parseMultipart,
   parseUrlencoded,
@@ -69,7 +70,22 @@ function MultipartFields({ body, boundary, onBody }: { body: string; boundary: s
           onBody(serializeMultipart(next, boundary))
         }}
       />
-      <p className="px-3 py-2 text-[11px] text-zinc-600">Text fields only. File uploads are not supported yet.</p>
+      <div className="flex items-center gap-3 px-3 py-2">
+        <button
+          type="button"
+          onClick={async () => {
+            const path = await window.deadletter.pickFile()
+            if (path === null) return
+            const added = [...rows.filter((r) => r.name.trim() || r.value.trim()), { ...newRow(), name: 'file', value: fileValue(path) }, newRow()]
+            setRows(added)
+            onBody(serializeMultipart(added, boundary))
+          }}
+          className="rounded bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:bg-zinc-700"
+        >
+          Add file…
+        </button>
+        <p className="text-[11px] text-zinc-600">A value of <code>&lt; /absolute/path</code> uploads that file, read when you send.</p>
+      </div>
     </div>
   )
 }

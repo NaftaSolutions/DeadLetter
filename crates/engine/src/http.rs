@@ -160,7 +160,15 @@ pub(crate) fn build_request(client: &Client, req: RequestPayload) -> Result<reqw
         builder = builder.header(name, value);
     }
     if let Some(body) = req.body.filter(|b| !b.is_empty()) {
-        builder = builder.body(body);
+        let boundary = req
+            .headers
+            .iter()
+            .find(|h| h.name.trim().eq_ignore_ascii_case("content-type") && h.value.trim().to_ascii_lowercase().starts_with("multipart/"))
+            .and_then(|h| crate::multipart::boundary_of(&h.value));
+        builder = match boundary {
+            Some(boundary) => builder.body(crate::multipart::expand_files(&body, &boundary)?),
+            None => builder.body(body),
+        };
     }
     Ok(builder)
 }

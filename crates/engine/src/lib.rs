@@ -1,6 +1,7 @@
 mod collection;
 mod format;
 mod http;
+mod multipart;
 mod stream;
 mod vars;
 

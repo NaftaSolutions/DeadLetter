@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import {
   closeStream,
   executeRequest,
@@ -36,4 +36,10 @@ export function registerEngineIpc(): void {
   )
   ipcMain.handle(IPC.streamSend, (_event, id: number, text: string) => sendStreamMessage(id, text))
   ipcMain.handle(IPC.streamClose, (_event, id: number) => closeStream(id))
+  ipcMain.handle(IPC.pickFile, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = { properties: ['openFile' as const] }
+    const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    return picked.canceled ? null : (picked.filePaths[0] ?? null)
+  })
 }

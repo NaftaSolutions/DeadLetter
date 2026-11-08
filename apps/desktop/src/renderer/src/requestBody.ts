@@ -62,18 +62,33 @@ export function boundaryOf(contentType: string): string | null {
 
 const LF = '\n'
 
-/** `.http`-style multipart body of text fields (plain line feeds; the engine sends CRLF). */
+// A file field's value is `< /absolute/path` (the .http convention); the engine reads the file at send time.
+const FILE_VALUE = /^< ((?:\/|[A-Za-z]:[\\/]|\\\\).*)$/
+
+export const fileValue = (path: string): string => `< ${path}`
+
+/** The path a file field points at, or null for a text field. */
+export function filePathOf(value: string): string | null {
+  return FILE_VALUE.exec(value.trim())?.[1] ?? null
+}
+
+/** `.http`-style multipart body (plain line feeds; the engine sends CRLF). */
 export function serializeMultipart(fields: Field[], boundary = MULTIPART_BOUNDARY): string {
   const parts = fields
     .filter((f) => f.name.trim())
-    .map(
-      (f) =>
-        `--${boundary}${LF}Content-Disposition: form-data; name="${f.name.replace(/"/g, '%22')}"${LF}${LF}${f.value}${LF}`
-    )
+    .map((f) => {
+      const name = f.name.replace(/"/g, '%22')
+      const path = filePathOf(f.value)
+      if (path === null) {
+        return `--${boundary}${LF}Content-Disposition: form-data; name="${name}"${LF}${LF}${f.value}${LF}`
+      }
+      const filename = (path.split(/[\\/]/).pop() ?? 'file').replace(/"/g, '%22')
+      return `--${boundary}${LF}Content-Disposition: form-data; name="${name}"; filename="${filename}"${LF}${LF}${fileValue(path)}${LF}`
+    })
   return `${parts.join('')}--${boundary}--${LF}`
 }
 
-/** Text fields of a multipart body, or null if it has files or is not well-formed. */
+/** Fields of a multipart body (files as `< path`), or null if it has inline file bytes or is not well-formed. */
 export function parseMultipart(body: string, boundary: string): Field[] | null {
   const fields: Field[] = []
   let closed = false
@@ -89,11 +104,14 @@ export function parseMultipart(body: string, boundary: string): Field[] | null {
       .slice(1, sep)
       .split(LF)
       .find((l) => l.toLowerCase().startsWith('content-disposition:'))
-    if (!disposition || /filename=/i.test(disposition)) return null
-    const name = /name="([^"]*)"/.exec(disposition)?.[1]
+    if (!disposition) return null
+    const name = /[; ]name="([^"]*)"/.exec(disposition)?.[1]
     if (name === undefined) return null
-    const value = chunk.slice(sep + 2)
-    fields.push({ name: name.replace(/%22/g, '"'), value: value.endsWith(LF) ? value.slice(0, -1) : value })
+    const raw = chunk.slice(sep + 2)
+    const value = raw.endsWith(LF) ? raw.slice(0, -1) : raw
+    // A part with a filename is only editable as a table when its content is a file reference.
+    if (/filename=/i.test(disposition) && filePathOf(value) === null) return null
+    fields.push({ name: name.replace(/%22/g, '"'), value })
   }
   return closed ? fields : null
 }
