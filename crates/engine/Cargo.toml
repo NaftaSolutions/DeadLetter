@@ -18,7 +18,10 @@ serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 serde_norway = "0.9.42"
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
-tokio = { version = "1.54.1", features = ["sync", "macros", "time"] }
+tokio = { version = "1.54.1", features = ["sync", "macros", "time", "net"] }
+hyper = { version = "1", default-features = false, features = ["server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
+http-body-util = "0.1"
 futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
 
 [build-dependencies]
