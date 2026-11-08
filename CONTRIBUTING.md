@@ -35,4 +35,8 @@ pnpm test:e2e       # drives the real app with Playwright
 - Run `pnpm typecheck`, `pnpm test` and `pnpm test:e2e` first; there is no hosted CI yet, so please paste the results in the PR.
 - Commit messages: a short lowercase summary of the change.
 
+## AI contributions
+
+AI-assisted contributions are welcome, and much of this project was built with AI help. All we ask is that you understand what you submit and can talk through it if asked, and that you've run the tests yourself.
+
 By contributing you agree that your work is released under the project's [MIT license](LICENSE).
