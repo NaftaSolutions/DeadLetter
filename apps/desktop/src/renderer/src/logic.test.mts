@@ -13,6 +13,7 @@ import {
   serializeUrlencoded
 } from './requestBody.ts'
 import { newRow, type KeyValue } from './request.ts'
+import { entryPassed, isStreamUrl, requestsUnder, summarize } from './runner.ts'
 import { connecting, idleStream, MAX_ENTRIES, reduceStream, streamKind } from './stream.ts'
 import type { StreamEvent } from '@shared/api'
 
@@ -147,4 +148,19 @@ test('streams: kind detection and event log reduction', () => {
   let busy = idleStream()
   for (let i = 0; i < MAX_ENTRIES + 3; i++) busy = reduceStream(busy, ev({ kind: 'message', data: String(i) }))
   assert.deepEqual([busy.entries.length, busy.dropped, busy.entries[0]?.data], [MAX_ENTRIES, 3, '3'])
+})
+
+test('runner: requests under a folder in sidebar order, and run summaries', () => {
+  const req = (path: string) => ({ path, name: path.split('/').pop()!, kind: 'request', format: 'http', method: 'GET' })
+  const folder = (path: string) => ({ path, name: path.split('/').pop()!, kind: 'folder' })
+  const nodes = [req('z.http'), folder('b'), req('b/two.http'), req('b/one.http'), folder('b/inner'), req('b/inner/x.http'), folder('a'), req('a/y.http')]
+  assert.deepEqual(requestsUnder(nodes, '').map((n) => n.path), ['a/y.http', 'b/inner/x.http', 'b/one.http', 'b/two.http', 'z.http'])
+  assert.deepEqual(requestsUnder(nodes, 'b').map((n) => n.path), ['b/inner/x.http', 'b/one.http', 'b/two.http'])
+  assert.deepEqual(requestsUnder(nodes, 'b/inner').map((n) => n.path), ['b/inner/x.http'])
+  assert.deepEqual(requestsUnder(nodes, 'nope'), [])
+  const ok = { path: 'a', name: 'a', method: 'GET', tests: [{ assertion: 's', passed: true, message: '' }] }
+  const bad = { ...ok, tests: [{ assertion: 's', passed: false, message: 'no' }] }
+  assert.ok(entryPassed(ok) && !entryPassed(bad) && !entryPassed({ ...ok, error: 'boom' }))
+  assert.deepEqual(summarize([ok, bad, { ...ok, skipped: true, error: 's' }]), { total: 3, passed: 1, failed: 1, skipped: 1 })
+  assert.ok(isStreamUrl('wss://x') && isStreamUrl(' ws://x') && !isStreamUrl('https://x'))
 })

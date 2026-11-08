@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react'
+import { FilePlus, FolderOpen, FolderPlus, Play } from 'lucide-react'
 import type { Settings, TreeNode } from '@shared/api'
 import { buildTree } from '../collection'
 import { NewEntryRow, TreeRow, type Editing, type TreeActions } from './TreeRow'
@@ -14,11 +14,12 @@ interface Props {
   onCreateFolder: (dir: string, name: string) => Promise<void>
   onRename: (path: string, name: string) => Promise<void>
   onDelete: (path: string, isFolder: boolean) => Promise<void>
+  onRun: (dir: string, name: string) => void
 }
 
 const headerBtn = 'rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
 
-export const Sidebar = memo(function Sidebar({ settings, nodes, activePath, onOpen, onChooseWorkspace, onCreateRequest, onCreateFolder, onRename, onDelete }: Props) {
+export const Sidebar = memo(function Sidebar({ settings, nodes, activePath, onOpen, onChooseWorkspace, onCreateRequest, onCreateFolder, onRename, onDelete, onRun }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [editing, setEditing] = useState<Editing | null>(null)
   const tree = useMemo(() => buildTree(nodes), [nodes])
@@ -54,6 +55,7 @@ export const Sidebar = memo(function Sidebar({ settings, nodes, activePath, onOp
       }),
     onOpen,
     onEdit: setEditing,
+    onRun,
     onRename: finish(onRename),
     onCreateRequest: finish(async (dir: string, name: string) => {
       if (dir) setExpanded((prev) => new Set(prev).add(dir))
@@ -80,6 +82,9 @@ export const Sidebar = memo(function Sidebar({ settings, nodes, activePath, onOp
           <span className="truncate">{folderName}</span>
         </button>
         <span className="flex shrink-0">
+          <button type="button" className={headerBtn} aria-label="Run all requests" title="Run all requests" onClick={() => onRun('', folderName)}>
+            <Play className="size-3.5" />
+          </button>
           <button type="button" className={headerBtn} aria-label="New request" title="New request" onClick={() => setEditing({ kind: 'new-request', dir: '' })}>
             <FilePlus className="size-3.5" />
           </button>

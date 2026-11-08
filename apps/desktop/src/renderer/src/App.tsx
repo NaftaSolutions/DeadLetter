@@ -8,6 +8,8 @@ import { RequestPane } from './components/RequestPane'
 import { RequestTitle } from './components/RequestTitle'
 import { ResponsePane } from './components/ResponsePane'
 import { StreamPane } from './components/StreamPane'
+import { RunnerDialog } from './components/RunnerDialog'
+import { requestsUnder } from './runner'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { cleanError } from './errors'
@@ -29,6 +31,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showEnvs, setShowEnvs] = useState(false)
   const [showInterop, setShowInterop] = useState(false)
+  const [run, setRun] = useState<{ dir: string; title: string } | null>(null)
 
   const onError = useCallback((e: unknown) => setNotice(cleanError(e)), [])
   const { settings, setSettings, nodes, refresh, chooseWorkspace, setPreferredFormat } = useWorkspace(onError)
@@ -220,6 +223,7 @@ export function App() {
             onCreateFolder={createFolder}
             onRename={rename}
             onDelete={remove}
+            onRun={(dir, title) => setRun({ dir, title })}
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
@@ -274,6 +278,10 @@ export function App() {
           }}
           onClose={() => setShowEnvs(false)}
         />
+      )}
+
+      {run && (
+        <RunnerDialog dir={run.dir} title={run.title} requests={requestsUnder(nodes, run.dir)} onClose={() => setRun(null)} />
       )}
 
       {showSettings && settings && (

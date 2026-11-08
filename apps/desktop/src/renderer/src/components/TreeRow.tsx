@@ -1,4 +1,4 @@
-import { ChevronRight, FilePlus, Folder, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, FilePlus, Play, Folder, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react'
 import type { TreeItem } from '../collection'
 import { InlineInput } from './InlineInput'
 
@@ -18,6 +18,7 @@ export interface TreeActions {
   onCreateRequest: (dir: string, name: string) => void
   onCreateFolder: (dir: string, name: string) => void
   onDelete: (path: string, name: string, isFolder: boolean) => void
+  onRun: (path: string, name: string) => void
 }
 
 const METHOD_COLOR: Record<string, string> = {
@@ -103,6 +104,9 @@ export function TreeRow({ item, depth, a }: { item: TreeItem; depth: number; a: 
           <span className="flex shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
             {isFolder && (
               <>
+                <button type="button" className={iconBtn} aria-label={`Run ${node.name}`} title="Run all requests in this folder" onClick={() => a.onRun(node.path, node.name)}>
+                  <Play className="size-3.5" />
+                </button>
                 <button type="button" className={iconBtn} aria-label={`New request in ${node.name}`} title="New request" onClick={() => { a.onToggle(node.path, true); a.onEdit({ kind: 'new-request', dir: node.path }) }}>
                   <FilePlus className="size-3.5" />
                 </button>
