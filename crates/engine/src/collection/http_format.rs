@@ -58,6 +58,19 @@ fn strip_comment_marker(line: &str) -> &str {
     t.trim_start_matches(['#', '/']).trim_start()
 }
 
+/// `@name = value` file-level variable line.
+fn is_variable_line(line: &str) -> bool {
+    line.strip_prefix('@').and_then(|r| r.split_once('=')).is_some_and(|(n, _)| {
+        let n = n.trim();
+        !n.is_empty() && n.chars().all(|c| c.is_alphanumeric() || "_-.".contains(c))
+    })
+}
+
+/// `> handler.js`, `>> out.json`, `<> prev.json` (not inline `{% %}` scripts).
+fn is_directive_line(line: &str) -> bool {
+    (line.starts_with("<> ") || line.starts_with(">> ") || line.starts_with("> ")) && !line.contains("{%")
+}
+
 fn is_header_name(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "!#$%&'*+-.^_`|~".contains(c))
 }
@@ -94,6 +107,7 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
 
     // Preamble: title (`### name`), comments and blank lines up to the request line.
     let mut name = String::new();
+    let mut title_name = String::new();
     let mut assertions = Vec::new();
     let request_line = loop {
         let Some(line) = lines.next() else {
@@ -110,14 +124,38 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
             continue;
         }
         if is_comment(trimmed) {
-            if let Some(check) = strip_comment_marker(trimmed).strip_prefix("@assert ") {
+            let marker = strip_comment_marker(trimmed);
+            if let Some(check) = marker.strip_prefix("@assert ") {
                 assertions.push(check.trim().to_string());
+            } else if let Some(n) = marker.strip_prefix("@name ").or_else(|| marker.strip_prefix("@name=")) {
+                let n = n.trim().trim_start_matches('=').trim();
+                if title_name.is_empty() {
+                    title_name = n.to_string();
+                }
             }
+            continue;
+        }
+        // File-level variable definitions (`@host = value`) are not part of a request.
+        if is_variable_line(trimmed) {
             continue;
         }
         break trimmed;
     };
-    let (method, url) = parse_request_line(request_line)?;
+    if name.is_empty() {
+        name = title_name;
+    }
+    let (method, mut url) = parse_request_line(request_line)?;
+
+    // JetBrains: indented `?a=1` / `&b=2` lines continue the URL.
+    while let Some(next) = lines.peek() {
+        let cont = next.trim();
+        if next.starts_with([' ', '\t']) && (cont.starts_with('?') || cont.starts_with('&')) {
+            url.push_str(cont);
+            lines.next();
+        } else {
+            break;
+        }
+    }
 
     // Headers until the first blank line.
     let mut headers = Vec::new();
@@ -142,6 +180,17 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
     let rest: Vec<&str> = lines.collect();
     if rest.iter().any(|l| l.trim_start().starts_with("###")) {
         return Err(multi_request_error());
+    }
+    // Trailing response-handler / response-reference lines (`> h.js`, `>> out.json`,
+    // `<> prev.json`) are JetBrains directives, not body content.
+    let mut rest = rest;
+    while let Some(last) = rest.last() {
+        let t = last.trim();
+        if t.is_empty() || is_directive_line(t) {
+            rest.pop();
+        } else {
+            break;
+        }
     }
     let body = rest.join("\n");
     let body = body.trim_end_matches(['\r', '\n']);
@@ -218,6 +267,16 @@ mod tests {
         assert_eq!(req.url, "http://x/y");
         assert_eq!(req.headers.len(), 1);
         assert_eq!(req.body.as_deref(), Some("body"));
+    }
+
+    #[test]
+    fn jetbrains_extras() {
+        let text = "@host = http://x\n# @name Listing\nGET {{host}}/users\n    ?page=1\n    &limit=10\nAccept: */*\n\n{\"a\":1}\n\n> handler.js\n<> prev.json\n";
+        let req = parse(text).unwrap();
+        assert_eq!(req.name, "Listing");
+        assert_eq!(req.url, "{{host}}/users?page=1&limit=10");
+        assert_eq!(req.headers.len(), 1);
+        assert_eq!(req.body.as_deref(), Some("{\"a\":1}"));
     }
 
     #[test]
