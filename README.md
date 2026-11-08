@@ -71,6 +71,17 @@ No new request type or file format: the request decides how it runs.
 
 The log keeps the last 5000 entries. Not supported yet: gRPC, a `ws://` URL that only exists after variable substitution (start it with a literal `ws://`), and saving messages with the request.
 
+## Packaging
+
+```sh
+pnpm package:win     # NSIS installer      -> apps/desktop/dist/
+pnpm package:mac     # dmg
+pnpm package:linux   # AppImage
+pnpm package:dir     # unpacked app only, fastest way to check a build
+```
+
+Each script builds the Rust engine first. The engine is native, so package on the OS you are targeting (cross-packaging is not supported). Nothing is published or signed; builds are unsigned, so Windows SmartScreen and macOS Gatekeeper will warn. electron-builder downloads its Electron and installer tooling from GitHub on the first run.
+
 ## Tests
 
 ```sh

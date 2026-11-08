@@ -9,6 +9,11 @@
     "dev": "pnpm build:engine && pnpm --filter @deadletter/desktop dev",
     "build": "pnpm build:engine && pnpm --filter @deadletter/desktop build",
     "build:engine": "pnpm --filter @deadletter/engine build",
+    "package": "pnpm build:engine && pnpm --filter @deadletter/desktop package",
+    "package:win": "pnpm build:engine && pnpm --filter @deadletter/desktop package:win",
+    "package:mac": "pnpm build:engine && pnpm --filter @deadletter/desktop package:mac",
+    "package:linux": "pnpm build:engine && pnpm --filter @deadletter/desktop package:linux",
+    "package:dir": "pnpm build:engine && pnpm --filter @deadletter/desktop package:dir",
     "typecheck": "pnpm --filter @deadletter/desktop typecheck",
     "test": "cargo test -p engine && pnpm --filter @deadletter/desktop test:unit",
     "test:e2e": "pnpm build:engine && pnpm --filter @deadletter/desktop test:e2e"
