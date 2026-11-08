@@ -2,6 +2,9 @@
   "name": "@deadletter/engine",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Nafta Solutions LLC",
+  "repository": { "type": "git", "url": "git+https://github.com/NaftaSolutions/DeadLetter.git" },
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {

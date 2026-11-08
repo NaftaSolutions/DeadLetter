@@ -1,6 +1,9 @@
 {
   "name": "deadletter",
   "private": true,
+  "license": "MIT",
+  "author": "Nafta Solutions LLC",
+  "repository": { "type": "git", "url": "git+https://github.com/NaftaSolutions/DeadLetter.git" },
   "packageManager": "pnpm@11.13.1",
   "scripts": {
     "dev": "pnpm build:engine && pnpm --filter @deadletter/desktop dev",

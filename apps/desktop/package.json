@@ -2,6 +2,9 @@
   "name": "@deadletter/desktop",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Nafta Solutions LLC",
+  "repository": { "type": "git", "url": "git+https://github.com/NaftaSolutions/DeadLetter.git" },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

@@ -1,4 +1,19 @@
 # DeadLetter
+
+A local-first, open-source API client. Your requests are plain files in a folder you choose, so they live in git next to your code. No account, no cloud sync, no telemetry.
+
+![DeadLetter showing a pretty-printed JSON response](assets/screenshots/response.png)
+
+- **Files, not a database.** Requests are `.http` (default) or `.json`, one per file, human-readable and diff-friendly.
+- **Environments with safe secrets.** `{{variables}}` everywhere; secret values stay in a git-ignored file.
+- **Bring your collections.** Import Postman, Insomnia, OpenAPI, Hoppscotch, HAR, Bruno, `.http` files and cURL; export to Postman.
+- **Beyond request/response.** Server-Sent Events and WebSocket sessions with a live log.
+- **Fast.** The Electron UI stays light; networking, JSON formatting and file watching run in a Rust engine (napi-rs).
+
+**Status:** early but usable. Not there yet: gRPC, scripting and assertions, file uploads in multipart bodies, a collection runner. An opt-in MCP server is planned and will always be off by default.
+
+Released under the [MIT license](LICENSE). Contributions welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Development
 
 Prerequisites: Node 20+, pnpm, Rust (stable) + MSVC build tools on Windows.
