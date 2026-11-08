@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
 import { registerEnvironmentIpc } from './environments'
@@ -32,7 +32,19 @@ function createWindow(): void {
   }
 }
 
+// Packaged builds get no Electron default menu (Reload, DevTools, ...). macOS keeps a
+// minimal one, since its app/edit roles provide Quit and the copy/paste shortcuts.
+function setupMenu(): void {
+  if (!app.isPackaged) return
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]))
+  } else {
+    Menu.setApplicationMenu(null)
+  }
+}
+
 app.whenReady().then(() => {
+  setupMenu()
   registerEngineIpc()
   registerCollectionIpc()
   registerEnvironmentIpc()
