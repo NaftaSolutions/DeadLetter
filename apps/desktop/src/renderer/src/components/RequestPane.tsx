@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { detectAuth } from '../auth'
 import type { RequestDraft } from '../request'
 import { AuthEditor } from './AuthEditor'
+import { AssertionsEditor } from './AssertionsEditor'
 import { BodyEditor } from './BodyEditor'
 import { KeyValueEditor } from './KeyValueEditor'
 import { Tabs } from './Tabs'
 
-type Tab = 'headers' | 'auth' | 'body'
+type Tab = 'headers' | 'auth' | 'body' | 'tests'
 
 interface Props {
   draft: RequestDraft
@@ -17,7 +18,7 @@ interface Props {
 
 export function RequestPane({ draft, noBody, onChange }: Props) {
   const [picked, setTab] = useState<Tab>('headers')
-  const tab: Tab = noBody && picked === 'body' ? 'headers' : picked
+  const tab: Tab = noBody && (picked === 'body' || picked === 'tests') ? 'headers' : picked
   const activeHeaders = draft.headers.filter((h) => h.enabled && h.name.trim()).length
   const hasAuth = detectAuth(draft.headers).kind !== 'none'
 
@@ -30,7 +31,8 @@ export function RequestPane({ draft, noBody, onChange }: Props) {
         tabs={[
           { id: 'headers', label: 'Headers', count: activeHeaders },
           { id: 'auth', label: 'Auth', count: hasAuth ? 1 : 0 },
-          ...(noBody ? [] : [{ id: 'body' as const, label: 'Body', count: draft.body.trim() ? 1 : 0 }])
+          ...(noBody ? [] : [{ id: 'body' as const, label: 'Body', count: draft.body.trim() ? 1 : 0 }]),
+          ...(noBody ? [] : [{ id: 'tests' as const, label: 'Tests', count: draft.assertions.filter((a) => a.trim()).length }])
         ]}
       />
       <div
@@ -42,6 +44,7 @@ export function RequestPane({ draft, noBody, onChange }: Props) {
         {tab === 'headers' && <KeyValueEditor rows={draft.headers} onChange={(headers) => onChange({ headers })} />}
         {tab === 'auth' && <AuthEditor headers={draft.headers} onHeaders={(headers) => onChange({ headers })} />}
         {tab === 'body' && <BodyEditor headers={draft.headers} body={draft.body} onChange={onChange} />}
+        {tab === 'tests' && <AssertionsEditor assertions={draft.assertions} onChange={(assertions) => onChange({ assertions })} />}
       </div>
     </section>
   )

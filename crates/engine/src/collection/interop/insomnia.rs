@@ -58,6 +58,7 @@ fn request_of(r: &Value, warnings: &mut Vec<String>) -> RequestFile {
         url: convert_vars(&s(&r["url"])),
         headers: Vec::new(),
         body: None,
+        ..Default::default()
     };
     if let Some(hs) = r.get("headers").and_then(Value::as_array) {
         for h in hs.iter().filter(|h| !s(&h["name"]).trim().is_empty()) {

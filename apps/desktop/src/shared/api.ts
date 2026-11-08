@@ -1,6 +1,7 @@
-import type { Environment, RequestFile, RequestPayload, ResponsePayload, StreamEvent, TreeNode } from '@deadletter/engine'
+import type { AssertionResult, Environment, RequestFile, RequestPayload, ResponsePayload, StreamEvent, TreeNode } from '@deadletter/engine'
 
 export type {
+  AssertionResult,
   EnvVariable,
   Environment,
   HeaderEntry,
@@ -48,6 +49,7 @@ export const IPC = {
   streamSend: 'stream:send',
   streamClose: 'stream:close',
   pickFile: 'dialog:pickFile',
+  runAssertions: 'engine:runAssertions',
   /** main -> renderer push: something happened on a stream session. */
   streamEvent: 'stream:event',
   settingsGet: 'settings:get',
@@ -93,6 +95,9 @@ export interface DeadLetterApi {
     close(id: number): Promise<void>
     onEvent(listener: (event: StreamEvent) => void): () => void
   }
+
+  /** Checks a response against a request's assertions (variables of the active environment filled in). */
+  runAssertions(assertions: string[], response: ResponsePayload): Promise<AssertionResult[]>
 
   /** Native file picker; resolves with the absolute path, or null if cancelled. */
   pickFile(): Promise<string | null>

@@ -140,7 +140,7 @@ fn parse_request(text: &str, collection: &[Block], warnings: &mut Vec<String>) -
     let meta = find(&blocks, "meta").map(entries).unwrap_or_default();
     let meta_of = |k: &str| meta.iter().find(|(key, _, _)| key == k).map(|(_, v, _)| v.clone()).unwrap_or_default();
 
-    let mut req = RequestFile { name: meta_of("name"), method: method.to_ascii_uppercase(), url: get("url"), headers: Vec::new(), body: None };
+    let mut req = RequestFile { name: meta_of("name"), method: method.to_ascii_uppercase(), url: get("url"), headers: Vec::new(), body: None, ..Default::default() };
 
     // Path parameters (`/users/:id`) take their value when one is set.
     if let Some(params) = find(&blocks, "params:path") {

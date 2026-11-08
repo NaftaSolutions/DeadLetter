@@ -200,6 +200,7 @@ pub fn parse(command: &str) -> Res<RequestFile> {
         url: String::new(),
         headers: p.headers,
         body: None,
+        ..Default::default()
     };
     let body = if !p.fields.is_empty() {
         Some(multipart_body(&p.fields))

@@ -26,6 +26,7 @@ mod tests {
                 RequestHeader { name: "X-Debug".into(), value: "1".into(), enabled: false },
             ],
             body: Some("{\n  \"a\": 1\n}".into()),
+            ..Default::default()
         }
     }
 

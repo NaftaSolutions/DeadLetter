@@ -6,9 +6,10 @@ import {
   openStream,
   ping,
   readEnvironment,
+  runAssertions,
   sendStreamMessage
 } from '@deadletter/engine'
-import { IPC, type RequestPayload, type StreamEvent, type StreamKind } from '../shared/api'
+import { IPC, type RequestPayload, type ResponsePayload, type StreamEvent, type StreamKind } from '../shared/api'
 import { relative, isAbsolute } from 'node:path'
 import { getSettings, workspaceRoot } from './settings'
 
@@ -46,6 +47,9 @@ export function registerEngineIpc(): void {
   )
   ipcMain.handle(IPC.streamSend, (_event, id: number, text: string) => sendStreamMessage(id, text))
   ipcMain.handle(IPC.streamClose, (_event, id: number) => closeStream(id))
+  ipcMain.handle(IPC.runAssertions, (_event, assertions: string[], response: ResponsePayload) =>
+    runAssertions(assertions, response, activeVariables())
+  )
   ipcMain.handle(IPC.pickFile, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const options = { properties: ['openFile' as const] }

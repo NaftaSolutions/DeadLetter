@@ -1,3 +1,4 @@
+mod assert;
 mod collection;
 mod format;
 mod http;

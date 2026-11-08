@@ -54,6 +54,7 @@ fn request_of(r: &Value, inherited: &Value, warnings: &mut Vec<String>) -> Reque
         url: vars(&s(&r["endpoint"])),
         headers: Vec::new(),
         body: None,
+        ..Default::default()
     };
     if let Some(hs) = r["headers"].as_array() {
         for h in hs.iter().filter(|h| !s(&h["key"]).trim().is_empty()) {

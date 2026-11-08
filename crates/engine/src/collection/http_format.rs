@@ -9,7 +9,8 @@
 //! {"name": "ada"}
 //! ```
 //!
-//! One request per file. A disabled header is written as a `#` comment so other
+//! Response checks are `# @assert <check>` comment lines above the request line, so other
+//! tools ignore them. One request per file. A disabled header is written as a `#` comment so other
 //! tools simply ignore it. A file holding several `###`-separated requests is
 //! rejected rather than silently truncated on the next save.
 
@@ -26,6 +27,9 @@ pub fn serialize(req: &RequestFile) -> String {
     let name = one_line(&req.name);
     if !name.is_empty() {
         out.push_str(&format!("### {name}\n"));
+    }
+    for check in req.assertions.iter().map(|a| one_line(a)).filter(|a| !a.is_empty()) {
+        out.push_str(&format!("# @assert {check}\n"));
     }
     out.push_str(&format!("{} {}\n", req.method.trim().to_uppercase(), one_line(&req.url)));
     for h in &req.headers {
@@ -90,6 +94,7 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
 
     // Preamble: title (`### name`), comments and blank lines up to the request line.
     let mut name = String::new();
+    let mut assertions = Vec::new();
     let request_line = loop {
         let Some(line) = lines.next() else {
             return Err("Missing request line".into());
@@ -105,6 +110,9 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
             continue;
         }
         if is_comment(trimmed) {
+            if let Some(check) = strip_comment_marker(trimmed).strip_prefix("@assert ") {
+                assertions.push(check.trim().to_string());
+            }
             continue;
         }
         break trimmed;
@@ -139,7 +147,7 @@ pub fn parse(text: &str) -> Result<RequestFile, String> {
     let body = body.trim_end_matches(['\r', '\n']);
     let body = (!body.trim().is_empty()).then(|| body.to_string());
 
-    Ok(RequestFile { name, method, url, headers, body })
+    Ok(RequestFile { name, method, url, headers, body, assertions })
 }
 
 fn multi_request_error() -> String {
@@ -160,6 +168,7 @@ mod tests {
                 RequestHeader { name: "X-Debug".into(), value: "1".into(), enabled: false },
             ],
             body: Some("{\n  \"name\": \"ada\"\n}\n\n{\"second\": true}".into()),
+            ..Default::default()
         }
     }
 
@@ -167,6 +176,15 @@ mod tests {
     fn round_trips() {
         let req = sample();
         let text = serialize(&req);
+        assert_eq!(parse(&text).unwrap(), req);
+    }
+
+    #[test]
+    fn assertions_are_comment_lines_above_the_request() {
+        let mut req = sample();
+        req.assertions = vec!["status == 200".into(), "json $.id exists".into()];
+        let text = serialize(&req);
+        assert!(text.starts_with("### Create user\n# @assert status == 200\n# @assert json $.id exists\nPOST "));
         assert_eq!(parse(&text).unwrap(), req);
     }
 
@@ -185,6 +203,7 @@ mod tests {
             url: "http://x".into(),
             headers: vec![],
             body: None,
+            ..Default::default()
         };
         assert_eq!(serialize(&req), "GET http://x\n");
         assert_eq!(parse("GET http://x\n").unwrap(), req);

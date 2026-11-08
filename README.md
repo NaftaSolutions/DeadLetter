@@ -10,7 +10,7 @@ A local-first, open-source API client. Your requests are plain files in a folder
 - **Beyond request/response.** Server-Sent Events and WebSocket sessions with a live log.
 - **Fast.** The Electron UI stays light; networking, JSON formatting and file watching run in a Rust engine (napi-rs).
 
-**Status:** early but usable. Not there yet: gRPC, scripting and assertions, a collection runner. An opt-in MCP server is planned and will always be off by default.
+**Status:** early but usable. Not there yet: gRPC, scripting, a collection runner. An opt-in MCP server is planned and will always be off by default.
 
 Released under the [MIT license](LICENSE). Contributions welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

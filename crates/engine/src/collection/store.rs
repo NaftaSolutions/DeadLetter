@@ -221,6 +221,7 @@ pub fn create_request(root: &str, dir: &str, name: &str, format: &str) -> Res<St
         url: String::new(),
         headers: vec![],
         body: None,
+        ..Default::default()
     };
     write_file(&path, &req)?;
     Ok(rel_string(&root, &path))

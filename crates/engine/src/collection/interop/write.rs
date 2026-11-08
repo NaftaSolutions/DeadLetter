@@ -158,6 +158,7 @@ mod tests {
                 url: "http://x/top".into(),
                 headers: vec![RequestHeader { name: "A".into(), value: "1".into(), enabled: true }],
                 body: Some("{}".into()),
+                ..Default::default()
             })
             .unwrap(),
         )

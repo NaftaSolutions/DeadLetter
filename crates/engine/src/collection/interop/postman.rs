@@ -147,6 +147,7 @@ fn request_of(name: &str, item: &Value, inherited: &Value, ctx: &mut Ctx) -> Opt
         url: String::new(),
         headers: Vec::new(),
         body: None,
+        ..Default::default()
     };
     if let Some(url) = r.as_str() {
         req.url = url.to_string();
@@ -388,7 +389,7 @@ mod tests {
 
     #[test]
     fn multipart_exports_as_formdata_and_round_trips() {
-        let mut req = RequestFile { name: "Up".into(), method: "POST".into(), url: "http://x/up".into(), headers: vec![], body: None };
+        let mut req = RequestFile { name: "Up".into(), method: "POST".into(), url: "http://x/up".into(), headers: vec![], body: None, ..Default::default() };
         set_multipart(&mut req, &[("a".to_string(), "1".to_string()), ("b".to_string(), "two words".to_string())]);
         let doc = request_to_postman(&req);
         assert_eq!(doc["request"]["body"]["mode"], "formdata");
@@ -410,6 +411,7 @@ mod tests {
                 RequestHeader { name: "X-Off".into(), value: "1".into(), enabled: false },
             ],
             body: Some("q=a%20b&z=1".into()),
+            ..Default::default()
         };
         let doc = collection("Shop", vec![json!({ "name": "Auth", "item": [request_to_postman(&req)] })]);
         let back = import(&doc).unwrap();

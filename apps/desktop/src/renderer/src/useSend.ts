@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
-import type { ResponsePayload } from '@shared/api'
+import type { AssertionResult, ResponsePayload } from '@shared/api'
 import { cleanError } from './errors'
 import { toPayload, type RequestDraft } from './request'
 
 export type SendState =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'done'; response: ResponsePayload }
+  | { kind: 'done'; response: ResponsePayload; tests: AssertionResult[] }
   | { kind: 'error'; message: string }
 
 export function useSend() {
@@ -19,7 +19,10 @@ export function useSend() {
     setState({ kind: 'loading' })
     try {
       const response = await window.deadletter.executeRequest(toPayload(draft))
-      if (id === seq.current) setState({ kind: 'done', response })
+      const checks = draft.assertions.filter((a) => a.trim())
+      // A failure to run the checks must not hide the response itself.
+      const tests = checks.length ? await window.deadletter.runAssertions(checks, response).catch(() => []) : []
+      if (id === seq.current) setState({ kind: 'done', response, tests })
     } catch (e) {
       if (id === seq.current) setState({ kind: 'error', message: cleanError(e) })
     }

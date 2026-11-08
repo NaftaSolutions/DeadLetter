@@ -64,7 +64,7 @@ pub fn import(v: &Value) -> Res<ImportResult> {
             .unwrap_or_default();
 
         let (host, path) = host_and_path(&url);
-        let mut req = RequestFile { name: format!("{method} {path}"), method, url, headers, body: None };
+        let mut req = RequestFile { name: format!("{method} {path}"), method, url, headers, body: None, ..Default::default() };
 
         let post = &r["postData"];
         let mime = s(&post["mimeType"]).to_ascii_lowercase();

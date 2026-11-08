@@ -176,6 +176,7 @@ fn operation(root: &Value, path: &str, method: &str, op: &Value, common: &[Value
         url: String::new(),
         headers: Vec::new(),
         body: None,
+        ..Default::default()
     };
 
     // Path: `{id}` -> `{{id}}`.

@@ -17,6 +17,8 @@ export interface RequestDraft {
   url: string
   headers: KeyValue[]
   body: string
+  /** Response checks, one per entry (see the Tests tab). */
+  assertions: string[]
 }
 
 export const emptyDraft = (): RequestDraft => ({
@@ -24,7 +26,8 @@ export const emptyDraft = (): RequestDraft => ({
   method: 'GET',
   url: '',
   headers: [newRow()],
-  body: ''
+  body: '',
+  assertions: []
 })
 
 export function fromFile(f: RequestFile): RequestDraft {
@@ -33,7 +36,8 @@ export function fromFile(f: RequestFile): RequestDraft {
     method: f.method.toUpperCase() as Method,
     url: f.url,
     headers: [...f.headers.map((h) => ({ id: crypto.randomUUID(), ...h })), newRow()],
-    body: f.body ?? ''
+    body: f.body ?? '',
+    assertions: [...f.assertions]
   }
 }
 
@@ -46,7 +50,8 @@ export function toFile(d: RequestDraft): RequestFile {
     headers: d.headers
       .filter((h) => h.name.trim() || h.value.trim())
       .map(({ name, value, enabled }) => ({ name, value, enabled })),
-    body: d.body.length > 0 ? d.body : undefined
+    body: d.body.length > 0 ? d.body : undefined,
+    assertions: d.assertions.filter((a) => a.trim())
   }
 }
 

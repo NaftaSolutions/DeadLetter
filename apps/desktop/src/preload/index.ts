@@ -15,6 +15,7 @@ const api: DeadLetterApi = {
       return () => ipcRenderer.removeListener(IPC.streamEvent, handler)
     }
   },
+  runAssertions: (assertions, response) => ipcRenderer.invoke(IPC.runAssertions, assertions, response),
   pickFile: () => ipcRenderer.invoke(IPC.pickFile),
   setDirty: (dirty) => ipcRenderer.send(IPC.setDirty, dirty),
   settings: {

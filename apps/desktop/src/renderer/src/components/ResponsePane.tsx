@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
-import type { ResponsePayload } from '@shared/api'
+import type { AssertionResult, ResponsePayload } from '@shared/api'
 import { parseSetCookies } from '../cookies'
 import type { SendState } from '../useSend'
 import { useResponseBody } from '../useResponseBody'
@@ -9,7 +9,7 @@ import { Tabs } from './Tabs'
 
 const CodeViewer = lazy(() => import('./CodeViewer').then((m) => ({ default: m.CodeViewer })))
 
-type Tab = 'body' | 'cookies' | 'headers'
+type Tab = 'body' | 'cookies' | 'headers' | 'tests'
 
 function statusTone(status: number): string {
   if (status >= 500) return 'border-red-900 bg-red-950/50 text-red-300'
@@ -30,12 +30,13 @@ function Empty({ children }: { children: string }) {
   return <div className="flex flex-1 items-center justify-center text-zinc-600">{children}</div>
 }
 
-function Loaded({ res }: { res: ResponsePayload }) {
+function Loaded({ res, tests }: { res: ResponsePayload; tests: AssertionResult[] }) {
   const [tab, setTab] = useState<Tab>('body')
   const [raw, setRaw] = useState(false)
   const [wrap, setWrap] = useState(true)
   const { text, language, canPrettify, large, needsFormat, format } = useResponseBody(res, raw)
   const cookies = parseSetCookies(res.headers)
+  const failed = tests.filter((t) => !t.passed).length
 
   return (
     <>
@@ -46,7 +47,8 @@ function Loaded({ res }: { res: ResponsePayload }) {
         tabs={[
           { id: 'body', label: 'Body' },
           { id: 'cookies', label: 'Cookies', count: cookies.length },
-          { id: 'headers', label: 'Headers', count: res.headers.length }
+          { id: 'headers', label: 'Headers', count: res.headers.length },
+          ...(tests.length ? [{ id: 'tests' as const, label: failed ? 'Tests (failing)' : 'Tests (passing)', count: tests.length }] : [])
         ]}
         trailing={
           <div className="flex items-center gap-3 py-1.5 font-mono text-xs text-zinc-400" aria-label="Response summary">
@@ -109,6 +111,23 @@ function Loaded({ res }: { res: ResponsePayload }) {
             </table>
           ))}
 
+        {tab === 'tests' && (
+          <ul aria-label="Test results" className="p-3 font-mono text-xs">
+            <li className="pb-2 text-zinc-400">
+              {tests.length - failed} of {tests.length} passed
+            </li>
+            {tests.map((t, i) => (
+              <li key={i} className="flex gap-2 py-0.5">
+                <span className={t.passed ? 'text-emerald-400' : 'text-red-400'} aria-label={t.passed ? 'Passed' : 'Failed'}>
+                  {t.passed ? '✓' : '✗'}
+                </span>
+                <span className="text-zinc-300">{t.assertion}</span>
+                {!t.passed && <span className="text-red-300">— {t.message}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {tab === 'headers' && (
           <dl className="grid grid-cols-[minmax(8rem,max-content)_1fr] gap-x-4 gap-y-1 p-3 font-mono text-xs">
             {res.headers.map((h, i) => (
@@ -142,7 +161,7 @@ export const ResponsePane = memo(function ResponsePane({ state }: { state: SendS
           <p className="break-words font-mono text-xs leading-relaxed">{state.message}</p>
         </div>
       )}
-      {state.kind === 'done' && <Loaded res={state.response} />}
+      {state.kind === 'done' && <Loaded res={state.response} tests={state.tests} />}
     </section>
   )
 })

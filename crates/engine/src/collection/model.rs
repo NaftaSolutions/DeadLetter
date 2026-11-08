@@ -16,7 +16,7 @@ pub struct RequestHeader {
 
 /// A request as stored on disk, independent of the file format it is stored in.
 #[napi(object)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RequestFile {
     #[serde(default)]
     pub name: String,
@@ -26,6 +26,9 @@ pub struct RequestFile {
     pub headers: Vec<RequestHeader>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Response checks, one per entry, e.g. `status == 200` (see `assert.rs`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assertions: Vec<String>,
 }
 
 /// One entry of the collection tree. The list is flat; `path` is relative to the
