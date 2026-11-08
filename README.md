@@ -67,6 +67,8 @@ Bodies open in a read-only Monaco editor (syntax highlighting, folding, Ctrl+F s
 
 No new request type or file format: the request decides how it runs.
 
+![DeadLetter showing a live WebSocket session](assets/screenshots/websocket.png)
+
 - **WebSocket:** a URL starting with `ws://` or `wss://`. Send becomes Connect; the pane below is a live log (received, sent, timestamps) with a message box. Headers are sent with the handshake, and `{{variables}}` work in the URL, headers and outgoing messages. Binary frames are shown as a size only.
 - **Server-Sent Events:** any request with an enabled `Accept: text/event-stream` header. Events are parsed by the engine (event name, id, multi-line data) and listed as they arrive; Stop ends the stream. Streams have no overall timeout. If the server answers with something that is not an event stream, its raw chunks are shown instead.
 
