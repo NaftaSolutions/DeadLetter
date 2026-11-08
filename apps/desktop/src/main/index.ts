@@ -5,6 +5,7 @@ import { registerEngineIpc } from './engine'
 import { registerEnvironmentIpc } from './environments'
 import { registerInteropIpc } from './interop'
 import { registerMcpIpc, stopMcp } from './mcp'
+import { registerMcpInstallIpc } from './mcpInstall'
 import { guardClose, registerCloseGuardIpc } from './closeGuard'
 
 function createWindow(): void {
@@ -38,6 +39,7 @@ app.whenReady().then(() => {
   registerInteropIpc()
   registerCloseGuardIpc()
   registerMcpIpc()
+  registerMcpInstallIpc()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

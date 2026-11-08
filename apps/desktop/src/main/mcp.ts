@@ -133,6 +133,12 @@ function status(): McpStatus {
   }
 }
 
+/** What a client needs to connect, and whether the server is actually up. */
+export function connection(): { enabled: boolean; running: boolean; url: string; token: string } {
+  const s = status()
+  return { enabled: s.enabled, running: s.running, url: s.url, token: s.token }
+}
+
 export function stopMcp(): void {
   if (running) mcpStop()
   running = false

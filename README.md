@@ -72,6 +72,22 @@ No new request type or file format: the request decides how it runs.
 
 The log keeps the last 5000 entries. Not supported yet: gRPC, a `ws://` URL that only exists after variable substitution (start it with a literal `ws://`), and saving messages with the request.
 
+## AI agents (MCP)
+
+DeadLetter can expose your workspace to AI tools such as Claude Code through the Model Context Protocol. It is **off by default**: nothing listens until you enable it in Settings > AI agent access (MCP).
+
+- **Local only.** The server binds to `127.0.0.1`, requires a bearer token (stored in the app's user-data folder, never in your workspace) and rejects browser requests.
+- **Tools.** `list_requests`, `get_request`, `list_environments` and `send_request`. Secret environment values are never returned, and are scrubbed from responses.
+- **You stay in control.** By default every `send_request` asks for your approval; you can switch to always-allow or read-only. Each call is shown in an activity log.
+
+The quickest way to connect a tool is the **Connect an AI tool** list in the same panel: press **Install** next to Claude Code, Cursor or VS Code and DeadLetter registers itself there (you see exactly what will change first, and **Remove** undoes it). Press **Update** after regenerating the token or changing the port. To do it by hand with Claude Code, copy the command from the panel and run it once:
+
+```sh
+claude mcp add --transport http deadletter http://127.0.0.1:39217/mcp --header "Authorization: Bearer <token>"
+```
+
+Other MCP clients need the same URL and an `Authorization: Bearer <token>` header. To share a setup through a repository, reference the token from an environment variable instead of committing it. Claude Code's `.mcp.json` supports `"Authorization": "Bearer ${DEADLETTER_MCP_TOKEN}"`. A line in your `AGENTS.md` or `CLAUDE.md` such as "API requests live in DeadLetter; use its MCP tools to find and run them" helps agents reach for it.
+
 ## Packaging
 
 ```sh

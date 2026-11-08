@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { McpApproval, McpStatus } from '@shared/api'
 import { useMcp } from '../useMcp'
+import { McpClients } from './McpClients'
 
 const APPROVALS: { id: McpApproval; label: string; hint: string }[] = [
   { id: 'ask', label: 'Ask me', hint: 'Approve each request an agent wants to send, or allow it for the session.' },
@@ -115,10 +116,12 @@ export function McpSettings({ onError }: { onError: (e: unknown) => void }) {
             </div>
           </fieldset>
 
+          {status.running && <McpClients refreshKey={`${status.url}|${status.token}`} onError={onError} />}
+
           <Field label="Endpoint" shown={status.url} value={status.url} copyLabel="Copy endpoint" />
           <Field label="Token" shown={'•'.repeat(24)} value={status.token} copyLabel="Copy token" />
           <Field
-            label="Add to Claude Code (other clients: same URL and an Authorization: Bearer header)"
+            label="Or add it by hand (other clients: same URL and an Authorization: Bearer header)"
             shown="claude mcp add --transport http deadletter …"
             value={claudeCodeCommand(status)}
             copyLabel="Copy Claude Code command"

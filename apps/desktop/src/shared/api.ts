@@ -74,6 +74,26 @@ export interface McpApprovalRequest {
   detail: string
 }
 
+export type McpClientId = 'claude-code' | 'cursor' | 'vscode'
+
+/** A tool the MCP server can be registered with. */
+export interface McpClientInfo {
+  id: McpClientId
+  name: string
+  /** Found on this computer; only detected tools can be installed into. */
+  detected: boolean
+  /** DeadLetter is registered with it. */
+  installed: boolean
+  /** Exactly what installing does. */
+  preview: string
+}
+
+export interface McpInstallResult {
+  id: McpClientId
+  ok: boolean
+  message: string
+}
+
 /** Contract between preload (producer) and renderer (consumer). */
 export const IPC = {
   ping: 'engine:ping',
@@ -114,6 +134,9 @@ export const IPC = {
   mcpConfigure: 'mcp:configure',
   mcpRegenerateToken: 'mcp:regenerateToken',
   mcpAnswerApproval: 'mcp:answerApproval',
+  mcpClients: 'mcp:clients',
+  mcpInstallClient: 'mcp:installClient',
+  mcpUninstallClient: 'mcp:uninstallClient',
   /** main -> renderer pushes */
   mcpActivity: 'mcp:activity',
   mcpApproval: 'mcp:approval',
@@ -187,6 +210,11 @@ export interface DeadLetterApi {
     configure(patch: { port?: number; approval?: McpApproval }): Promise<McpStatus>
     /** Invalidates the old token; connected clients must be reconfigured. */
     regenerateToken(): Promise<McpStatus>
+    /** Tools DeadLetter can be registered with, and whether it already is. Needs the server running. */
+    clients(): Promise<McpClientInfo[]>
+    /** Registers (or updates) DeadLetter in that tool's user-level config. Rejects if the server is off. */
+    installClient(id: McpClientId): Promise<McpInstallResult>
+    uninstallClient(id: McpClientId): Promise<McpInstallResult>
     answerApproval(id: number, allow: boolean, remember: boolean): Promise<void>
     onActivity(listener: (entry: McpActivity) => void): () => void
     onApproval(listener: (request: McpApprovalRequest) => void): () => void

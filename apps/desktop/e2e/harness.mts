@@ -44,6 +44,8 @@ export interface Ctx {
 interface Options {
   files?: Record<string, string>
   preferredFormat?: 'json' | 'http'
+  /** Extra environment for the app, e.g. a fake home directory. */
+  env?: Record<string, string>
 }
 
 /** Starts the built app against a temp workspace + local API, runs `fn`, always cleans up. */
@@ -88,7 +90,8 @@ export async function withApp(opts: Options, fn: (ctx: Ctx) => Promise<void>): P
 
   const app = await _electron.launch({
     executablePath: electronPath,
-    args: [`--user-data-dir=${userData}`, desktopDir]
+    args: [`--user-data-dir=${userData}`, desktopDir],
+    env: { ...process.env, ...opts.env } as Record<string, string>
   })
   const proc = app.process()
   try {
