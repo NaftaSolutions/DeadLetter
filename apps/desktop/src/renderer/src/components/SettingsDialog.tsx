@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import type { RequestFormat, Settings } from '@shared/api'
+import { McpSettings } from './McpSettings'
 
 interface Props {
   settings: Settings
   onFormat: (f: RequestFormat) => void
   onChooseWorkspace: () => void
+  onError: (e: unknown) => void
   onClose: () => void
 }
 
@@ -14,7 +16,7 @@ const FORMATS: { id: RequestFormat; label: string; hint: string }[] = [
   { id: 'json', label: '.json', hint: 'Structured, easy to process with scripts' }
 ]
 
-export function SettingsDialog({ settings, onFormat, onChooseWorkspace, onClose }: Props) {
+export function SettingsDialog({ settings, onFormat, onChooseWorkspace, onError, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     ref.current?.showModal()
@@ -26,7 +28,7 @@ export function SettingsDialog({ settings, onFormat, onChooseWorkspace, onClose 
       aria-labelledby="settings-title"
       onClose={onClose}
       onClick={(e) => e.target === ref.current && ref.current?.close()}
-      className="m-auto w-[26rem] max-w-[90vw] rounded-lg border border-zinc-800 bg-zinc-950 p-0 text-zinc-200 backdrop:bg-black/60"
+      className="m-auto w-[26rem] max-h-[90vh] max-w-[90vw] overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-0 text-zinc-200 backdrop:bg-black/60"
     >
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <h2 id="settings-title" className="text-sm font-semibold">Settings</h2>
@@ -63,6 +65,8 @@ export function SettingsDialog({ settings, onFormat, onChooseWorkspace, onClose 
             </button>
           </div>
         </div>
+
+        <McpSettings onError={onError} />
       </div>
     </dialog>
   )

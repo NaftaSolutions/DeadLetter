@@ -4,6 +4,7 @@ import { registerCollectionIpc } from './collection'
 import { registerEngineIpc } from './engine'
 import { registerEnvironmentIpc } from './environments'
 import { registerInteropIpc } from './interop'
+import { registerMcpIpc, stopMcp } from './mcp'
 import { guardClose, registerCloseGuardIpc } from './closeGuard'
 
 function createWindow(): void {
@@ -36,11 +37,14 @@ app.whenReady().then(() => {
   registerEnvironmentIpc()
   registerInteropIpc()
   registerCloseGuardIpc()
+  registerMcpIpc()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('before-quit', stopMcp)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

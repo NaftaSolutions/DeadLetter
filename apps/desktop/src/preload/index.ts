@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type DeadLetterApi, type StreamEvent } from '../shared/api'
 
+function subscribe<T>(channel: string, listener: (value: T) => void): () => void {
+  const handler = (_event: Electron.IpcRendererEvent, value: T): void => listener(value)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
 const api: DeadLetterApi = {
   ping: () => ipcRenderer.invoke(IPC.ping),
   executeRequest: (req) => ipcRenderer.invoke(IPC.executeRequest, req),
@@ -35,6 +41,16 @@ const api: DeadLetterApi = {
     read: (name) => ipcRenderer.invoke(IPC.environmentRead, name),
     write: (environment) => ipcRenderer.invoke(IPC.environmentWrite, environment),
     delete: (name) => ipcRenderer.invoke(IPC.environmentDelete, name)
+  },
+  mcp: {
+    status: () => ipcRenderer.invoke(IPC.mcpStatus),
+    setEnabled: (enabled) => ipcRenderer.invoke(IPC.mcpSetEnabled, enabled),
+    configure: (patch) => ipcRenderer.invoke(IPC.mcpConfigure, patch),
+    regenerateToken: () => ipcRenderer.invoke(IPC.mcpRegenerateToken),
+    answerApproval: (id, allow, remember) => ipcRenderer.invoke(IPC.mcpAnswerApproval, id, allow, remember),
+    onActivity: (listener) => subscribe(IPC.mcpActivity, listener),
+    onApproval: (listener) => subscribe(IPC.mcpApproval, listener),
+    onApprovalExpired: (listener) => subscribe(IPC.mcpApprovalExpired, listener)
   },
   collection: {
     list: () => ipcRenderer.invoke(IPC.collectionList),

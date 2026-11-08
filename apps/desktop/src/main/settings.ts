@@ -19,6 +19,12 @@ function sanitize(raw: unknown): Settings {
 }
 
 let cache: Settings | null = null
+const listeners: (() => void)[] = []
+
+/** Runs after every settings change (workspace, environment...). */
+export function onSettingsChanged(listener: () => void): void {
+  listeners.push(listener)
+}
 
 export function getSettings(): Settings {
   if (cache) return cache
@@ -35,6 +41,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   const tmp = `${file()}.tmp`
   writeFileSync(tmp, JSON.stringify(cache, null, 2) + '\n')
   renameSync(tmp, file())
+  listeners.forEach((l) => l())
   return cache
 }
 

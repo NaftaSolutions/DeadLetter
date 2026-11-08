@@ -8,9 +8,10 @@ A local-first, open-source API client. Your requests are plain files in a folder
 - **Environments with safe secrets.** `{{variables}}` everywhere; secret values stay in a git-ignored file.
 - **Bring your collections.** Import Postman, Insomnia, OpenAPI, Hoppscotch, HAR, Bruno, `.http` files and cURL; export to Postman.
 - **Beyond request/response.** Server-Sent Events and WebSocket sessions with a live log.
+- **Opt-in AI agent access (MCP).** Off by default. When you turn it on in Settings, a loopback-only server lets tools like Claude Code list and read your saved requests and, with your approval, send them. Token-protected, secrets are never exposed, and every call is logged in the app.
 - **Fast.** The Electron UI stays light; networking, JSON formatting and file watching run in a Rust engine (napi-rs).
 
-**Status:** early but usable. Not there yet: gRPC, scripting. An opt-in MCP server is planned and will always be off by default.
+**Status:** early but usable. Not there yet: gRPC, scripting.
 
 Released under the [MIT license](LICENSE). Contributions welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

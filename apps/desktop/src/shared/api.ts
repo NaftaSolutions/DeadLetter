@@ -40,6 +40,40 @@ export interface Settings {
   activeEnvironment: string | null
 }
 
+/** `ask`: the user approves each agent-initiated send (or allows the session); `always`: no prompt; `readonly`: agents cannot send at all. */
+export type McpApproval = 'ask' | 'always' | 'readonly'
+
+export interface McpStatus {
+  enabled: boolean
+  running: boolean
+  port: number
+  approval: McpApproval
+  /** Full endpoint, e.g. `http://127.0.0.1:39217/mcp`. */
+  url: string
+  /** Bearer token clients must send. Stored in the app's user-data folder, never in the workspace. */
+  token: string
+  /** Why the server could not start (port in use, no workspace...). */
+  error: string | null
+  /** Most recent agent calls, newest last. */
+  activity: McpActivity[]
+}
+
+/** One finished agent tool call. */
+export interface McpActivity {
+  at: number
+  tool: string
+  detail: string
+  outcome: 'ok' | 'error'
+  ms: number
+}
+
+/** An agent wants to send a request and is waiting for the user. */
+export interface McpApprovalRequest {
+  id: number
+  tool: string
+  detail: string
+}
+
 /** Contract between preload (producer) and renderer (consumer). */
 export const IPC = {
   ping: 'engine:ping',
@@ -74,7 +108,16 @@ export const IPC = {
   /** main -> renderer push: files in the workspace changed on disk. */
   collectionChanged: 'collection:changed',
   /** renderer -> main: whether the open request has unsaved edits (guards window close). */
-  setDirty: 'app:setDirty'
+  setDirty: 'app:setDirty',
+  mcpStatus: 'mcp:status',
+  mcpSetEnabled: 'mcp:setEnabled',
+  mcpConfigure: 'mcp:configure',
+  mcpRegenerateToken: 'mcp:regenerateToken',
+  mcpAnswerApproval: 'mcp:answerApproval',
+  /** main -> renderer pushes */
+  mcpActivity: 'mcp:activity',
+  mcpApproval: 'mcp:approval',
+  mcpApprovalExpired: 'mcp:approvalExpired'
 } as const
 
 export interface DeadLetterApi {
@@ -133,6 +176,22 @@ export interface DeadLetterApi {
     read(name: string): Promise<Environment>
     write(environment: Environment): Promise<void>
     delete(name: string): Promise<void>
+  }
+
+  /** Opt-in MCP server for AI agents. Off until the user enables it. */
+  mcp: {
+    status(): Promise<McpStatus>
+    /** Starts or stops the server. */
+    setEnabled(enabled: boolean): Promise<McpStatus>
+    /** Changes the port and/or approval mode (restarts the server when needed). */
+    configure(patch: { port?: number; approval?: McpApproval }): Promise<McpStatus>
+    /** Invalidates the old token; connected clients must be reconfigured. */
+    regenerateToken(): Promise<McpStatus>
+    answerApproval(id: number, allow: boolean, remember: boolean): Promise<void>
+    onActivity(listener: (entry: McpActivity) => void): () => void
+    onApproval(listener: (request: McpApprovalRequest) => void): () => void
+    /** The request with this id can no longer be answered (timeout, client left, server stopped). */
+    onApprovalExpired(listener: (id: number) => void): () => void
   }
 
   /** All paths are relative to the workspace and use `/`. The main process owns the root. */

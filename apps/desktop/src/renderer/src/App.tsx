@@ -11,6 +11,7 @@ import { StreamPane } from './components/StreamPane'
 import { RunnerDialog } from './components/RunnerDialog'
 import { requestsUnder } from './runner'
 import { SettingsDialog } from './components/SettingsDialog'
+import { McpApprovalDialog } from './components/McpApprovalDialog'
 import { Sidebar } from './components/Sidebar'
 import { cleanError } from './errors'
 import { StatusBadge, type EngineStatus } from './StatusBadge'
@@ -289,9 +290,12 @@ export function App() {
           settings={settings}
           onFormat={setPreferredFormat}
           onChooseWorkspace={chooseWorkspace}
+          onError={onError}
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      <McpApprovalDialog />
     </div>
   )
 }
