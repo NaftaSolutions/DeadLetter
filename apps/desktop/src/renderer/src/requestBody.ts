@@ -62,8 +62,9 @@ export function boundaryOf(contentType: string): string | null {
 
 const LF = '\n'
 
-// A file field's value is `< /absolute/path` (the .http convention); the engine reads the file at send time.
-const FILE_VALUE = /^< ((?:\/|[A-Za-z]:[\\/]|\\\\).*)$/
+// A file field's value is `< path` (the .http convention); the engine reads the file at send time.
+// Absolute paths, or `./` paths relative to the workspace.
+const FILE_VALUE = /^< ((?:\/|\.[\\/]|[A-Za-z]:[\\/]|\\\\).*)$/
 
 export const fileValue = (path: string): string => `< ${path}`
 

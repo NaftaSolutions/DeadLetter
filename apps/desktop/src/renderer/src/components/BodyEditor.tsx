@@ -84,7 +84,7 @@ function MultipartFields({ body, boundary, onBody }: { body: string; boundary: s
         >
           Add file…
         </button>
-        <p className="text-[11px] text-zinc-600">A value of <code>&lt; /absolute/path</code> uploads that file, read when you send.</p>
+        <p className="text-[11px] text-zinc-600">A value of <code>&lt; ./path</code> (from the workspace) or <code>&lt; /absolute/path</code> uploads that file, read when you send.</p>
       </div>
     </div>
   )

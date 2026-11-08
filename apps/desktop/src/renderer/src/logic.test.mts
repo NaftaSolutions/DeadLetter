@@ -106,11 +106,13 @@ test('multipart: file fields are `< path` references that round-trip', () => {
     { name: 'a', value: '1' },
     { name: 'avatar', value: '< C:\\pics\\me.png' },
     { name: 'doc', value: '< /home/u/a b.pdf' },
-    { name: 'text', value: '< not-absolute' }
+    { name: 'rel', value: '< ./uploads/a.png' },
+    { name: 'text', value: '< not-a-path' }
   ]
   const body = serializeMultipart(fields, 'b')
   assert.match(body, /name="avatar"; filename="me.png"\n\n< C:\\pics\\me.png\n/)
-  assert.match(body, /name="text"\n\n< not-absolute\n/) // relative: stays a text field
+  assert.match(body, /name="rel"; filename="a.png"\n\n< \.\/uploads\/a\.png\n/)
+  assert.match(body, /name="text"\n\n< not-a-path\n/) // not path-shaped: stays a text field
   assert.deepEqual(parseMultipart(body, 'b'), fields)
 })
 

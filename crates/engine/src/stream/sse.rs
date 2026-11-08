@@ -103,7 +103,7 @@ fn client() -> Result<&'static Client, String> {
 }
 
 pub(crate) async fn run(em: &Emitter, req: RequestPayload, mut cmds: Commands) -> Result<String, String> {
-    let builder = build_request(client()?, req).map_err(|e| e.reason)?;
+    let builder = build_request(client()?, req, None).map_err(|e| e.reason)?;
     let mut res = select! {
         res = builder.send() => res.map_err(|e| describe(e).reason)?,
         _ = wait_closed(&mut cmds) => return Ok("Disconnected".into()),

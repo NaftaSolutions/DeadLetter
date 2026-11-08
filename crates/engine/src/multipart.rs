@@ -2,7 +2,7 @@
 //! clients do it: a part whose `Content-Disposition` has a `filename` and whose content is a single
 //! `< /absolute/path` line. At send time the line is replaced by the file's bytes.
 
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use napi::Result;
 
@@ -35,9 +35,25 @@ fn mime_for(path: &Path) -> &'static str {
     }
 }
 
+/// Absolute paths are used as written. A relative path is resolved against the workspace `root`
+/// and may not climb out of it, so a shared collection cannot read arbitrary files by `..`.
+fn locate(reference: &str, root: Option<&Path>) -> Result<PathBuf> {
+    let path = Path::new(reference.trim());
+    if path.is_absolute() {
+        return Ok(path.to_path_buf());
+    }
+    let Some(root) = root else {
+        return Err(invalid(format!("Cannot resolve relative file path without a workspace: {}", path.display())));
+    };
+    if path.components().any(|c| matches!(c, Component::ParentDir | Component::Prefix(_) | Component::RootDir)) {
+        return Err(invalid(format!("File path must stay inside the workspace: {}", path.display())));
+    }
+    Ok(root.join(path))
+}
+
 /// Replaces every `< path` file part of a CRLF multipart `body` with the file's contents.
 /// Bodies without file parts come back byte-for-byte.
-pub(crate) fn expand_files(body: &str, boundary: &str) -> Result<Vec<u8>> {
+pub(crate) fn expand_files(body: &str, boundary: &str, root: Option<&Path>) -> Result<Vec<u8>> {
     let delimiter = format!("--{boundary}");
     let mut chunks = body.split(delimiter.as_str());
     let mut out = chunks.next().unwrap_or_default().as_bytes().to_vec();
@@ -57,14 +73,11 @@ pub(crate) fn expand_files(body: &str, boundary: &str) -> Result<Vec<u8>> {
             out.extend_from_slice(chunk.as_bytes());
             continue;
         };
-        let path = Path::new(reference.trim());
-        if !path.is_absolute() {
-            return Err(invalid(format!("File path must be absolute: {}", reference.trim())));
-        }
-        let bytes = std::fs::read(path).map_err(|e| invalid(format!("Cannot read {}: {e}", path.display())))?;
+        let path = locate(reference, root)?;
+        let bytes = std::fs::read(&path).map_err(|e| invalid(format!("Cannot read {}: {e}", path.display())))?;
         out.extend_from_slice(head.as_bytes());
         if !head.to_ascii_lowercase().contains("\r\ncontent-type:") {
-            out.extend_from_slice(format!("\r\nContent-Type: {}", mime_for(path)).as_bytes());
+            out.extend_from_slice(format!("\r\nContent-Type: {}", mime_for(&path)).as_bytes());
         }
         out.extend_from_slice(b"\r\n\r\n");
         out.extend_from_slice(&bytes);
@@ -94,7 +107,7 @@ mod tests {
             "--b\r\nContent-Disposition: form-data; name=\"t\"\r\n\r\nhi\r\n--b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"a.png\"\r\n\r\n< {}\r\n--b--\r\n",
             file.display()
         );
-        let out = expand_files(&body, "b").unwrap();
+        let out = expand_files(&body, "b", None).unwrap();
         let expected_tail: Vec<u8> = [&b"Content-Type: image/png\r\n\r\n"[..], &[0, 159, 255], b"\r\n--b--\r\n"].concat();
         assert!(out.windows(expected_tail.len()).any(|w| w == expected_tail.as_slice()));
         assert!(out.starts_with(b"--b\r\nContent-Disposition: form-data; name=\"t\"\r\n\r\nhi\r\n"));
@@ -103,12 +116,25 @@ mod tests {
     #[test]
     fn rejects_relative_and_missing_files() {
         let rel = "--b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"a\"\r\n\r\n< a.png\r\n--b--\r\n";
-        assert!(expand_files(rel, "b").is_err());
+        assert!(expand_files(rel, "b", None).is_err());
+    }
+
+    #[test]
+    fn relative_paths_resolve_inside_the_workspace_only() {
+        let dir = std::env::temp_dir().join("deadletter-multipart-rel");
+        std::fs::create_dir_all(dir.join("up")).unwrap();
+        std::fs::write(dir.join("up").join("a.txt"), b"hello").unwrap();
+        let part = |p: &str| format!("--b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"a\"\r\n\r\n< {p}\r\n--b--\r\n");
+        let out = expand_files(&part("./up/a.txt"), "b", Some(&dir)).unwrap();
+        assert!(out.windows(5).any(|w| w == b"hello"), "{:?}", String::from_utf8_lossy(&out));
+        assert!(expand_files(&part("../x.txt"), "b", Some(&dir)).is_err());
+        assert!(expand_files(&part("./up/../../x.txt"), "b", Some(&dir)).is_err());
+        assert!(expand_files(&part("./up/a.txt"), "b", None).is_err());
     }
 
     #[test]
     fn a_text_field_that_looks_like_a_reference_is_not_read() {
         let body = "--b\r\nContent-Disposition: form-data; name=\"t\"\r\n\r\n< /etc/passwd\r\n--b--\r\n";
-        assert_eq!(expand_files(body, "b").unwrap(), body.as_bytes());
+        assert_eq!(expand_files(body, "b", None).unwrap(), body.as_bytes());
     }
 }

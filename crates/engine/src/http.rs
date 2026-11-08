@@ -143,7 +143,8 @@ pub(crate) fn resolve(req: RequestPayload, variables: Vec<HeaderEntry>) -> Resul
 }
 
 /// Turns a resolved request into a reqwest builder (method, headers, body).
-pub(crate) fn build_request(client: &Client, req: RequestPayload) -> Result<reqwest::RequestBuilder> {
+/// `files_root` is the workspace that relative multipart file paths resolve against.
+pub(crate) fn build_request(client: &Client, req: RequestPayload, files_root: Option<&std::path::Path>) -> Result<reqwest::RequestBuilder> {
     let method = Method::from_bytes(req.method.trim().to_uppercase().as_bytes())
         .map_err(|_| invalid(format!("Invalid HTTP method: {}", req.method)))?;
 
@@ -166,7 +167,7 @@ pub(crate) fn build_request(client: &Client, req: RequestPayload) -> Result<reqw
             .find(|h| h.name.trim().eq_ignore_ascii_case("content-type") && h.value.trim().to_ascii_lowercase().starts_with("multipart/"))
             .and_then(|h| crate::multipart::boundary_of(&h.value));
         builder = match boundary {
-            Some(boundary) => builder.body(crate::multipart::expand_files(&body, &boundary)?),
+            Some(boundary) => builder.body(crate::multipart::expand_files(&body, &boundary, files_root)?),
             None => builder.body(body),
         };
     }
@@ -176,9 +177,13 @@ pub(crate) fn build_request(client: &Client, req: RequestPayload) -> Result<reqw
 /// Executes an HTTP request on the Rust side; the returned Promise rejects with a
 /// readable message on invalid input or network failure (non-2xx is NOT an error).
 #[napi]
-pub async fn execute_request(req: RequestPayload, variables: Option<Vec<HeaderEntry>>) -> Result<ResponsePayload> {
+pub async fn execute_request(
+    req: RequestPayload,
+    variables: Option<Vec<HeaderEntry>>,
+    files_root: Option<String>,
+) -> Result<ResponsePayload> {
     let req = resolve(req, variables.unwrap_or_default())?;
-    let builder = build_request(client()?, req)?;
+    let builder = build_request(client()?, req, files_root.as_deref().map(std::path::Path::new))?;
 
     let started = Instant::now();
     let res = builder.send().await.map_err(describe)?;
