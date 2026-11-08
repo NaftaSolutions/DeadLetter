@@ -26,6 +26,9 @@ pub(crate) async fn run(
     if !url.starts_with("ws://") && !url.starts_with("wss://") {
         return Err(format!("A WebSocket URL must start with ws:// or wss://, got {url}"));
     }
+    if url.split_once("://").is_some_and(|(_, rest)| rest.trim_start_matches('/').is_empty()) {
+        return Err("Enter a host after the scheme, e.g. wss://echo.example.com/socket".to_string());
+    }
     let mut request = url.into_client_request().map_err(|e| format!("Invalid WebSocket URL: {e}"))?;
     for h in &req.headers {
         let name = h.name.trim();

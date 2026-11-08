@@ -243,7 +243,7 @@ export function App() {
             onStop={stream.stop}
           />
           <main className="flex min-h-0 flex-1 flex-col">
-            <RequestPane key={path ?? ''} draft={draft} onChange={patch} />
+            <RequestPane key={path ?? ''} draft={draft} noBody={kind === 'ws'} onChange={patch} />
             {kind ? (
               <StreamPane kind={kind} state={stream.state} onSend={stream.send} onClear={stream.clear} />
             ) : (

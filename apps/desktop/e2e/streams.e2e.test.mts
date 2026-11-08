@@ -123,3 +123,19 @@ test('WebSocket: an unreachable server reports the failure and stays usable', as
     assert.deepEqual(pageErrors, [])
   })
 })
+
+test('WebSocket requests have no Body tab, and a bare scheme gets a clear error', async () => {
+  await withApp({ files: { 'w.http': '### W\nGET ws://\n' } }, async ({ page, pageErrors }) => {
+    await page.locator('button[title="w.http"]').click()
+    await eventually(async () => (await page.getByLabel('Request URL').inputValue()) === 'ws://', 'request opened')
+    const tabs = page.getByRole('tablist', { name: 'request' })
+    await tabs.getByRole('tab', { name: /^Headers/ }).waitFor()
+    assert.equal(await tabs.getByRole('tab', { name: /^Body/ }).count(), 0)
+    await page.getByRole('button', { name: /^Connect/ }).click()
+    await page.getByText(/Enter a host after the scheme/).first().waitFor()
+    // An ordinary request keeps its Body tab.
+    await page.getByLabel('Request URL').fill('http://x.test')
+    await tabs.getByRole('tab', { name: /^Body/ }).waitFor()
+    assert.deepEqual(pageErrors, [])
+  })
+})
