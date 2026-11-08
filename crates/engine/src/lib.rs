@@ -2,6 +2,7 @@ mod assert;
 mod collection;
 mod format;
 mod http;
+mod mcp;
 mod multipart;
 mod stream;
 mod vars;

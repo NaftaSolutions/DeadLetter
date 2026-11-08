@@ -23,3 +23,6 @@ futures-util = { version = "0.3.34", default-features = false, features = ["sink
 
 [build-dependencies]
 napi-build = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["net", "io-util", "rt-multi-thread"] }

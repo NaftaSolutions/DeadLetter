@@ -1,12 +1,12 @@
 //! Collections: requests stored as human-readable `.json` / `.http` files in a
 //! user-chosen workspace folder.
 
-mod environment;
+pub(crate) mod environment;
 mod http_format;
 mod interop;
 mod json_format;
 mod model;
-pub(super) mod store;
+pub(crate) mod store;
 mod watcher;
 
 
